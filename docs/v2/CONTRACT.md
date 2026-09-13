@@ -52,13 +52,14 @@ Exports (initial): `tokens.css`, `Icon`, `ViewerIsland`, `ParamsPanel`, `ExportM
 
 | # | Repo | Ships | Awaits | Status |
 |---|---|---|---|---|
-| 1 | nurb | `tools.json`, SQLite schema, `nurb serve`, `nurb mcp` → `nurb 1.0.0a1` | — | planned |
-| 2 | nurb | `@nurb/ui 1.0.0-alpha.1` extracted from nurb-app's `web/app/frontend` (one-time reverse flow) | read access to nurb-app | planned |
-| 3 | nurb-app | engine overlay on the wheel, `@nurb/ui` imported, parity test | 1, 2 | planned |
-| 4 | nurb-app | public part pages, Ruby MCP server loading `tools.json`, OAuth server | 3 | planned |
-| 5 | nurb | desktop rebuilt on `@nurb/ui`, ACP sessions receive the local MCP server | 2 | planned |
-| 6 | nurb-app | `/sync` API, `nurb-desktop` OAuth client | 4 | planned |
-| 7 | nurb | `nurb login`, Publish, Back up, `nurb://open` | 6 | planned |
-| 8 | both | MCP App, directory, remix lineage | 4, 7 | planned |
+| 1 | nurb-app | `tools.json` exported from the Ruby MCP server (`rake mcp:contract`, nurb-app Phase 25); this file adopts it as §2 | — | planned |
+| 2 | nurb | SQLite schema, `nurb serve`, `nurb mcp` implementing `tools.json` → `nurb 1.0.0a1` on PyPI | 1 | planned |
+| 3 | nurb | `@nurb/ui 1.0.0-alpha.1` on npm, extracted from nurb-app's `web/app/frontend` (one-time reverse flow, read access to that worktree) | — | planned |
+| 4 | nurb-app | public part pages `/p/<slug>` + `nurb://open` contract (Phase 22); Ruby MCP server + OAuth (Phases 25–26) | — | planned |
+| 5 | nurb-app | engine overlay on the wheel, `@nurb/ui` imported, parity test (Phase 31, **Awaits** 2 and 3) | 2, 3 | planned |
+| 6 | nurb | desktop rebuilt on `@nurb/ui`, ACP sessions receive the local MCP server | 3 | planned |
+| 7 | nurb-app | `/sync` API + `nurb-desktop` OAuth client (Phase 32) | 4 | planned |
+| 8 | nurb | `nurb login`, Publish, Back up, `nurb://open` handler | 4, 7 | planned |
+| 9 | both | MCP App (nurb-app Phase 33, **Awaits** 3), directory and remix (nurb-app Phases 29–30) | 3 | planned |
 
-Update the status column from each repo's PROGRESS.md as handoffs ship. A phase that changes §2–§4 bumps this file first.
+A phase on the consuming side checks the registry (`pip index versions nurb`, `npm view @nurb/ui version`) before starting and stops with "blocked on ladder N" if the artifact is missing; it never stubs or vendors the artifact. Update the status column from each repo's PROGRESS.md as handoffs ship. A phase that changes §2–§4 bumps this file first.
