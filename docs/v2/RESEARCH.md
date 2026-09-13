@@ -42,6 +42,7 @@ The third is policy. Anthropic permits the user to sign into the unmodified Clau
 - **`packages/ui` → `@nurb/ui`**: extracted once from nurb-app's `web/app/frontend` (tokens, Icon, ViewerIsland, ParamsPanel, ExportMenu, chat cards, markdown policy). Transport-agnostic. Published to npm in the same release as the wheel. After the extraction, design work happens here and nurb.app consumes it.
 - **Desktop**: Rust core kept; UI rebuilt on `@nurb/ui` (project rail, chat column, viewer); spawns `nurb serve`; passes the local MCP server to each ACP session so agents use tools, never files; Claude path can fall back to the interactive `claude` binary in a PTY. One viewer for `nurb serve` and the desktop app.
 - **Bridge to nurb.app** (optional): Settings → nurb.app, browser OAuth with loopback (`nurb-desktop` public client, PKCE), token in Keychain; Publish per part, Back up per project (one-way push, explicit Pull), `nurb://open` deep link. Signed out means zero requests, tested.
+- **Relay client** (optional, after sign-in): while the app runs it holds one WebSocket to nurb.app and answers MCP requests forwarded from claude.ai or ChatGPT by handing them to the local `nurb mcp` server. This is how a phone talks to "your nurb instance"; nurb.app runs no tools of its own. Decided 2026-09-13; see CONTRACT.md §4 and ladder step 7.
 - **Skill**: shrinks to "add the nurb MCP server, call `read_guide` first". The benchmark harness (nurb-benchmarks) drives the tool path.
 
 ### Required technologies

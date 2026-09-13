@@ -4,32 +4,32 @@
 
 v2 resets the product layer and keeps the engine and the Tauri core. SQLite becomes the truth, agents work through MCP tools served by `nurb serve`, the viewer and app UI are rebuilt on one React package (`@nurb/ui`), and the desktop app drives the unmodified `claude` binary directly for the Claude path while Codex and Gemini stay on ACP. An optional bridge to nurb.app (sign in, Publish, Back up) closes the plan and is blocked until nurb-app ships its side. Decisions and evidence are in `docs/v2/RESEARCH.md`; the cross-repo contract is `docs/v2/CONTRACT.md`.
 
-The handoff ladder in CONTRACT §5 orders this plan. `tools.json` originates in nurb-app (ladder 1, exported from its Ruby MCP server by `rake mcp:contract`) and this repo adopts it; the `@nurb/ui` extraction (ladder 3) awaits nothing, so it comes first. A phase that consumes another repo's artifact checks for it before starting and stops with "blocked on ladder N" if it is missing; it never stubs or vendors the artifact.
+The handoff ladder in CONTRACT §5 orders this plan. nurb.app runs no tools and no model: it ships identity, sync, public pages and a relay. This repo ships the wheel with `tools.json` (ladder 3), `@nurb/ui` (ladder 4), the desktop rebuilt with the bridge (ladder 5, awaits nurb-app's OAuth and sync), and the relay client (ladder 7, awaits nurb-app's relay door). Ladders 3 and 4 await nothing, so the plan runs them first. A phase that consumes another repo's artifact checks the registry or the contract before starting and stops with "blocked on ladder N" if it is missing; it never stubs or vendors the artifact.
 
-Research done for this plan found four things worth knowing before starting: nurb-app has no `tools.json`, MCP server or `read_guide` yet (its nine Ruby `DEFINITION` hashes are the source the export will formalize, so `read_guide`, `check_messages`, `note` on write tools and the composite result shape are requests to make of nurb-app before ladder 1 ships); `part_revisions` has no `parent_id` there (v2 adds it locally and asks nurb-app to add it at ladder 5); the "2x2 composite" is today four separate 640x400 PNGs stitched in Ruby (v2 composites them in the wheel); and `ToolStepCard` and `AssistantMarkdown` do not exist as components (v2 creates them).
+Research done for this plan found three things worth knowing before starting: nurb-app's nine Ruby tool `DEFINITION` hashes and its `hosted.py` build sequence are the reference for `tools.json` and the build path, but nurb-app will not serve tools itself; the "2x2 composite" is today four separate 640x400 PNGs stitched in Ruby (v2 composites them in the wheel); and `ToolStepCard` and `AssistantMarkdown` do not exist as components (v2 creates them). `check_messages` was removed from the contract on 2026-09-13, so no tool result carries workbench messages and the workbench transcript is read-only.
 
 ## Prerequisites
 
 - `uv` and Python 3.13, Node 22, Rust toolchain for the desktop; `claude` CLI at v2.1.221 or newer signed into a subscription (needed for `--mcp-config` waits and the bench gate).
 - Read access to the nurb-app worktree for the one-time `@nurb/ui` extraction (Phase 1). Its `docs/core/PROGRESS.md` tail holds learnings to mine.
-- Ladder 1 (`tools.json` from nurb-app, adopted into CONTRACT §2 and `src/nurb/tools.json`) before Phase 3 starts.
 - `v0.26.0` is tagged as the last v1; v2 lands on `main` and ships as `1.0.0a1`. No `legacy/` folder; git history is the reference.
 
 ## Phase Summary
 
 | # | Phase | Ladder | What the user can do after it |
 |---|---|---|---|
-| 1 | `@nurb/ui`: the package and the cards | 3 | Browse tokens, icons, cards, params and export UI in a gallery page |
-| 2 | ViewerIsland | 3 | Orbit a real GLB with findings glow, section and ghost in React; `@nurb/ui 1.0.0-alpha.1` on npm |
-| 3 | Database, contract, and the build tools | 2 (awaits 1) | Add `nurb mcp` to Claude Code and have it build a part into rows |
-| 4 | Guide, spec, look, and the render | 2 | Claude reads the doctrine, pins a spec, and sees its own part |
-| 5 | Checkout, folder CLI, and the bench gate | 2 | Round-trip a project to a folder; six bench tasks pass through the tool path |
-| 6 | The workbench | 2, 3 | Open `localhost:7373`, drag sliders, export, read the transcript |
-| 7 | Desktop shell on `@nurb/ui` | 6 | Launch the app, see projects as rows, use the viewer in-process |
-| 8 | The Claude driver | 6 | Chat with Claude Code inside the app; it edits parts through tools |
-| 9 | MCP into ACP sessions | 6 | Codex and Gemini use tools; the folder fallback covers the rest |
-| 10 | Skill, docs, and the 1.0.0a1 release | 2, 6 | Install from PyPI; the skill says "add the MCP server" |
-| 11 | The nurb.app bridge | 8 (awaits 4, 7) | Sign in, Publish, Back up, open a public part in the app |
+| 1 | `@nurb/ui`: the package and the cards | 4 | Browse tokens, icons, cards, params and export UI in a gallery page |
+| 2 | ViewerIsland | 4 | Orbit a real GLB with findings glow, section and ghost in React; `@nurb/ui 1.0.0-alpha.1` on npm |
+| 3 | Database, contract, and the build tools | 3 | Add `nurb mcp` to Claude Code and have it build a part into rows |
+| 4 | Guide, spec, look, and the render | 3 | Claude reads the doctrine, pins a spec, and sees its own part |
+| 5 | Checkout, folder CLI, and the bench gate | 3 | Round-trip a project to a folder; six bench tasks pass through the tool path |
+| 6 | The workbench | 3, 4 | Open `localhost:7373`, drag sliders, export, read the transcript |
+| 7 | Desktop shell on `@nurb/ui` | 5 | Launch the app, see projects as rows, use the viewer in-process, open a public part by link |
+| 8 | The Claude driver | 5 | Chat with Claude Code inside the app; it edits parts through tools |
+| 9 | MCP into ACP sessions | 5 | Codex and Gemini use tools; the folder fallback covers the rest |
+| 10 | Skill, docs, and the 1.0.0a1 release | 3 | Install from PyPI; the skill says "add the MCP server" |
+| 11 | The nurb.app bridge | 5 (awaits 1, 2) | Sign in, Publish, Back up, Pull |
+| 12 | The relay client | 7 (awaits 6) | Use your nurb from claude.ai or ChatGPT while the app is open |
 
 ---
 
@@ -83,7 +83,7 @@ The viewer is the product's center and the source of the shell's state-duplicati
 - [ ] `ViewerIsland` props: `glbUrl`, `targetUrl`, `findings`, `highlight`, `bed`, `up`, `section`, `onCamera`. Camera state persisted by the caller through `onCamera` and an initial `camera` prop.
 - [ ] Load GLBs with three's `GLTFLoader` and BVH for picking is out of scope; keep the current raycast on click for findings.
 - [ ] Gallery entries: a real GLB from `nurb export --formats glb` in `examples/notch`, one with findings, one sectioned, one with a ghost.
-- [ ] Ship ladder 3: bump `pyproject.toml` to `1.0.0a1` and `packages/ui` to `1.0.0-alpha.1` (write the PEP 440 to semver mapping once and test it against `tauri.conf.json` too), add the npm publish job with provenance to `.github/workflows/publish.yml`, publish `@nurb/ui 1.0.0-alpha.1`, and mark ladder 3 shipped in CONTRACT §5.
+- [ ] Ship ladder 4: bump `pyproject.toml` to `1.0.0a1` and `packages/ui` to `1.0.0-alpha.1` (write the PEP 440 to semver mapping once and test it against `tauri.conf.json` too), add the npm publish job with provenance to `.github/workflows/publish.yml`, publish `@nurb/ui 1.0.0-alpha.1`, and mark ladder 4 shipped in CONTRACT §5.
 - [ ] Resize handling that does not ratchet: the ResizeObserver test from v1 (`viewer.html` lessons in CLAUDE.md) becomes a Vitest case with an initial size mismatch.
 
 ### Success Criteria
@@ -93,7 +93,7 @@ The viewer is the product's center and the source of the shell's state-duplicati
 - The section slider cuts the mesh and the cut face is capped, captured in `docs/v2/screenshots/phase-2-section.png`.
 - Mounting the component in a container that then shrinks by 200 px settles in one resize with no further ResizeObserver callbacks (test counts callbacks).
 - `npm run build --workspace packages/ui` still contains no iframe or `postMessage` reference.
-- `npm view @nurb/ui@1.0.0-alpha.1` resolves on the registry and CONTRACT §5 shows ladder 3 as shipped.
+- `npm view @nurb/ui@1.0.0-alpha.1` resolves on the registry and CONTRACT §5 shows ladder 4 as shipped.
 
 ### Files Likely Affected
 
@@ -104,15 +104,13 @@ The viewer is the product's center and the source of the shell's state-duplicati
 
 ## Phase 3: Database, contract, and the build tools
 
-**Awaits ladder 1.** Before starting, check that CONTRACT §2 has adopted nurb-app's exported `tools.json`. If it has not, stop with "blocked on ladder 1"; do not author the file here.
-
 ### Objective
 
-`nurb serve` owns one SQLite database, serves the adopted MCP tool contract over Streamable HTTP and stdio, and builds parts from rows through a materialized scratch directory. Claude Code, with `claude mcp add nurb -- nurb mcp`, can create a project and write a part that builds.
+`nurb serve` owns one SQLite database, serves the MCP tool contract from `tools.json` over Streamable HTTP and stdio, and builds parts from rows through a materialized scratch directory. Claude Code, with `claude mcp add nurb -- nurb mcp`, can create a project and write a part that builds.
 
 ### Rationale
 
-Everything on the Python side stands on the database and the contract. The materializer keeps the engine and `measured()` untouched, so the engine suite never goes red. Implementing the adopted contract against a real agent is the first proof that two servers can share one file.
+Everything on the Python side stands on the database and the contract. The materializer keeps the engine and `measured()` untouched, so the engine suite never goes red. Shipping the MCP path against a real agent before any UI exists is the first proof of the tool loop, and the relay (Phase 12) forwards to this same server, so the contract is written once here.
 
 ### Tasks
 
@@ -120,20 +118,19 @@ Everything on the Python side stands on the database and the contract. The mater
 - [ ] `src/nurb/db.py`: schema and migrations in plain `sqlite3`, WAL mode, UUID text ids. Tables: `projects`, `parts` (`current_revision_id`, name regex `^[a-z][a-z0-9_]*$`), `part_revisions` (`source`, `card_md`, `params`, `parent_id`), `build_runs` (`status`, `error`, `findings`, `inspect_report`, `stats`, `params`, `overrides`, `glb` blob, `render` blob), `measurements` (`name`, `value`, `unit`, `how`, `provisional`, `value_changed_at`), `messages` (`project_id`, `role`, `content`, `payload`, `sequence_number`), `pinned_specs`. Database path from `NURB_HOME`, default next to `config.toml` under the existing `checks.global_file()` convention.
 - [ ] `src/nurb/materialize.py`: write `<scratch>/parts/<name>.py`, `<scratch>/parts/<name>.md` (when a card exists), `<scratch>/measurements.toml` (float values, `unit = "mm"`, `how`, `provisional` only when true), `<scratch>/printer.toml` from the project's printer choice, and root-level shared modules. Snapshot, not overlay: clear `parts/*` first.
 - [ ] `src/nurb/engine_run.py` (name to taste): the one function `run_build(scratch, part, overrides, profile)` mirroring nurb-app's `hosted.py` sequence: name guard, `builder.build`, `checks.printer` + `checks.from_card` (a bad card is a `card` finding, never hides geometry), `builder.to_glb`, `builder.stats`, `checks.run`, `probe.finding_faces`, `probe.report` (limit 12, failure becomes one line). Returns findings, stats, inspect lines, GLB bytes, trimmed traceback on error.
-- [ ] `src/nurb/tools.json`: the file nurb-app exported at ladder 1, copied verbatim, added to `source-include`. Anything this repo needs that the export lacks (`_meta["anthropic/maxResultSizeChars"]` on large results, `note` on write tools, `read_guide`, `check_messages`) is a request to nurb-app and a CONTRACT §2 bump, never a local edit to the file.
-- [ ] `src/nurb/mcp_server.py`: low-level `mcp.server.Server` with `on_list_tools` loading `tools.json` via `Tool.model_validate`, `on_call_tool` dispatching by name, `jsonschema` validation of arguments in the dispatcher returning `is_error` results (never a protocol error). Implement `list_projects`, `get_project`, `create_project` (placeholder names, never "Untitled"), `read_measurements`, `record_measurement` (returns previous value and stale parts), `write_part_source`, `edit_part_source`, `run_build`, `read_findings`. Build tools return findings, stats, inspect lines and a resource link to the render; the composite image itself lands in Phase 2. Every tool result appends pending workbench messages (the `check_messages` payload) even before that tool exists.
+- [ ] `src/nurb/tools.json`: every tool in CONTRACT §2 with `name`, `title`, `description`, full JSON Schema `inputSchema`, `annotations`, and `_meta["anthropic/maxResultSizeChars"]` where results can be large. Every write tool takes `note`. Start from nurb-app's nine Ruby `DEFINITION` hashes. Add it to `source-include`.
+- [ ] `src/nurb/mcp_server.py`: low-level `mcp.server.Server` with `on_list_tools` loading `tools.json` via `Tool.model_validate`, `on_call_tool` dispatching by name, `jsonschema` validation of arguments in the dispatcher returning `is_error` results (never a protocol error). Implement `list_projects`, `get_project`, `create_project` (placeholder names, never "Untitled"), `read_measurements`, `record_measurement` (returns previous value and stale parts), `write_part_source`, `edit_part_source`, `run_build`, `read_findings`. Build tools return findings, stats, inspect lines and a resource link to the render; the composite image itself lands in Phase 2.
 - [ ] `src/nurb/serve.py`: Starlette app run by uvicorn on one port (7373 or next free), mounting the MCP app at `/mcp` (stateless, JSON responses), `GET /glb/<part>.glb`, `GET /render/<part>.png`, and `GET /api/state` for now. Writes `serve.json` (port, pid, token) under `NURB_HOME`. One process owns the database: the file lock is the guard, a second `nurb serve` exits with the running one's URL.
 - [ ] `nurb mcp`: a stdio proxy that reads `serve.json`, starts `nurb serve` detached when nothing is running, and forwards every MCP request to `/mcp`. Claude Code and the desktop app always reach the database through the serving process.
 - [ ] `nurb import <dir>`: a v1 folder becomes a project: parts (one revision each, card from the `.md`), measurements with `how` from the TOML, printer choice from `printer.toml`. Import `examples/notch` as the first fixture.
 - [ ] Contract test: an in-process `mcp.client.Client` diffs `tools/list` (dumped `by_alias`, `exclude_none`, `mode="json"`) against `tools.json` byte for byte.
-- [ ] Update `docs/v2/CONTRACT.md`: `parent_id` added locally and asked of nurb-app at ladder 5; the composite is produced by the wheel; ladder 2 status "in progress".
+- [ ] Update `docs/v2/CONTRACT.md`: the composite is produced by the wheel; ladder 3 status "in progress".
 - [ ] Delete `src/nurb/server.py`, `src/nurb/edit.py`'s on-disk rewrite path (keep the AST edit as a pure function for `edit_part_source`), `nurb dev`, `nurb new`, `nurb launcher`, and their tests. Port the crash-restart, variant-matching and shape-id invariants from `tests/test_server.py` to the new server tests before deleting the file.
 
 ### Success Criteria
 
 - `uv run pytest tests/test_examples.py tests/test_rules.py tests/test_notch_fit.py` passes unchanged after the dependency change.
 - `uv run pytest tests/test_contract.py` passes and the test compares the served tool list to `src/nurb/tools.json` with an exact equality assertion.
-- `src/nurb/tools.json` is byte-identical to the file nurb-app exported at ladder 1 (a test pins its hash, updated only by a ladder handoff).
 - Starting `nurb serve` twice leaves one process holding the database and the second invocation exits with the first one's URL on stdout.
 - `nurb import examples/notch` creates one project whose part count equals the number of `examples/notch/parts/*.py` files that do not start with an underscore.
 - In a fresh Claude Code session with `claude mcp add nurb -- nurb mcp`, `/mcp` lists the nurb server as connected with the tools from `tools.json`.
@@ -153,7 +150,7 @@ Everything on the Python side stands on the database and the contract. The mater
 
 ### Objective
 
-The remaining tools land: `read_guide`, `pin_spec`, `amend_spec`, `look`, `find_photos`, `check_messages`. Build results carry one composite 2x2 render produced inside the wheel with no browser, and `nurb render` uses the same rasterizer.
+The remaining tools land: `read_guide`, `pin_spec`, `amend_spec`, `look`, `find_photos`. Build results carry one composite 2x2 render produced inside the wheel with no browser, and `nurb render` uses the same rasterizer.
 
 ### Rationale
 
@@ -166,7 +163,6 @@ Seeing the part is what made the file-based loop work; the tool loop needs it be
 - [ ] `read_guide`: condensed doctrine plus `api` vocabulary plus a build123d sheet under 25,000 tokens, assembled at build time from `doctrine.md` and `api.py` so it cannot drift. A test asserts the token ceiling with a character proxy.
 - [ ] `pin_spec` / `amend_spec`: validation and merge rules mirrored from nurb-app's `operator.rb` (`normalize`, `errors`, `AmendSpec.merge`); a pinned spec supersedes the prior one.
 - [ ] `look`: the composite plus a resource link; `find_photos`: up to N downscaled reference images from the project's attachments.
-- [ ] `check_messages`: messages the user typed in the workbench since the last call, also appended to every tool result.
 - [ ] `nurb render [part]` writes `build/renders/<part>.png` through the rasterizer; drop the `render` extra and `src/nurb/render.py`'s browser path. `--section` stays as a cut through the mesh.
 - [ ] Derive the Anthropic-stripped schema variant mechanically (drop `minimum`, `maximum`, `multipleOf`, `minLength`, `maxLength`, `pattern`; fold them into descriptions; `oneOf` to `anyOf`; inline `$ref`; force `additionalProperties: false`). Property test: the output contains none of the banned keywords. Ship it as `nurb api --anthropic` for nurb-app to consume.
 - [ ] MCP resources: `list_resources` and `read_resource` serve the full-size renders as `BlobResourceContents`.
@@ -178,7 +174,6 @@ Seeing the part is what made the file-based loop work; the tool loop needs it be
 - `pin_spec` with a spec missing a required field returns validation errors naming that field and does not create a `pinned_specs` row.
 - `nurb render` in `examples/notch` writes a PNG for every part without playwright installed.
 - `nurb api --anthropic` output contains no `pattern`, `minimum`, `maximum`, `minLength`, `maxLength` or `oneOf` keys.
-- A message inserted into `messages` with role `user` appears in the next tool result's appended messages and is not repeated in the one after.
 
 ### Files Likely Affected
 
@@ -223,7 +218,7 @@ Git users and the benchmark scorer both want a folder. The gate is the guard aga
 
 ### Objective
 
-`nurb serve` serves a full browser page built from `@nurb/ui`: project list, part list, viewer, params, export, findings, and the transcript with a composer that writes `messages` for `check_messages`. Live updates over a websocket when rows change. It replaces `viewer.html` and ships in the wheel as static files.
+`nurb serve` serves a full browser page built from `@nurb/ui`: project list, part list, viewer, params, export, findings, and a read-only transcript. Live updates over a websocket when rows change. It replaces `viewer.html` and ships in the wheel as static files.
 
 ### Rationale
 
@@ -232,7 +227,7 @@ This is the surface for the terminal user ("the viewer opens from `nurb serve`")
 ### Tasks
 
 - [ ] `packages/workbench`: a Vite app composed from `@nurb/ui`, built to `src/nurb/static/` and added to `source-include`. The build is a `uv build` prerequisite documented in `CONTRIBUTING` and run by the publish workflow.
-- [ ] Serve routes: `GET /` the workbench, `GET /api/projects`, `GET /api/projects/<id>` (parts, params, findings, measurements, spec, messages), `POST /api/parts/<id>/params` (slider values become overrides and a build), `POST /api/parts/<id>/export` (3MF, STL, STEP, GLB with tuned settings), `POST /api/projects/<id>/messages`, `WS /ws` broadcasting `project`, `part`, `build`, `message` change events with ids.
+- [ ] Serve routes: `GET /` the workbench, `GET /api/projects`, `GET /api/projects/<id>` (parts, params, findings, measurements, spec, messages), `POST /api/parts/<id>/params` (slider values become overrides and a build), `POST /api/parts/<id>/export` (3MF, STL, STEP, GLB with tuned settings), `WS /ws` broadcasting `project`, `part`, `build`, `message` change events with ids.
 - [ ] Slider apply writes the new defaults back through the same AST edit `edit_part_source` uses, as a new revision with `parent_id`.
 - [ ] Anything cached from a build (stress, slice estimate) clears on rebuild, per the doctrine in CLAUDE.md.
 - [ ] Remove `src/nurb/viewer.html` and `src/nurb/vendor/three`; update the README's offline note to point at the bundled workbench.
@@ -242,7 +237,6 @@ This is the surface for the terminal user ("the viewer opens from `nurb serve`")
 
 - Opening the serve URL in a browser with `examples/notch` imported shows the project and its parts, captured in `docs/v2/screenshots/phase-6-workbench.png`.
 - Dragging a slider triggers a build and the viewer swaps geometry without the camera moving (screenshots before and after with matching camera readout).
-- Typing a message in the composer and calling `check_messages` from an MCP client returns that message.
 - `write_part_source` from an MCP client updates the open workbench page within two seconds without a reload.
 - Export of a 3MF from the page downloads a file that `nurb slice` accepts.
 - `uv build` produces a wheel that contains `nurb/static/index.html` and no `viewer.html`.
@@ -270,6 +264,7 @@ The app is the primary UI. This phase moves it onto the new foundation before ch
 - [ ] Rust command surface: drop `add_project`, `add_projects_from_folder`, `list_parts` readdir merge, `create_part`, `delete_part`; add `import_folder(path)` (calls the serve's import endpoint), keep `list_projects` as a thin HTTP proxy or let TS call the serve directly with the token from `serve.json`. Prefer TS fetch; Rust stays for the window, provisioning, sessions and the agents.
 - [ ] `desktop/src`: rebuild `App.tsx` on `@nurb/ui` tokens, `Icon`, `ViewerIsland`, `ParamsPanel`, `ExportMenu`. Rail lists projects and parts from `/api/projects` over the websocket, no polling. Selection is local state, no `nurb:part` messages. `partMessages.ts`, `partRecovery.ts`, `layout.ts` are deleted or rewritten against rows.
 - [ ] Settings: agents section as today; a nurb.app section rendered signed-out with the copy "Sign in to publish parts and back up projects" and a disabled button until Phase 11.
+- [ ] `nurb://open?src=https://nurb.app/p/<slug>`: the Tauri deep-link plugin registers the scheme; `get_public_part` fetches source, measurements and card from the shipped public page contract into a new local project. This is the one nurb.app request a signed-out app may make, and only when the user opens such a link.
 - [ ] Embed-mode labels are gone (no iframe), so audit every string for `.py`/`.md` mentions and replace with hobbyist wording.
 - [ ] `./node_modules/.bin/tsc --noEmit` and `npm test` in `desktop/` green; the UI test hook on loopback port 7399 still drives the app.
 
@@ -280,10 +275,11 @@ The app is the primary UI. This phase moves it onto the new foundation before ch
 - Dragging a slider in the app rebuilds and the viewer keeps its camera (readout unchanged in two screenshots).
 - `grep -r "postMessage\|nurb:part\|nurb:saved" desktop/src` returns nothing.
 - `npm test` and `tsc --noEmit` in `desktop/` exit 0.
+- Opening a `nurb://open?src=...` link for a published part with the app closed launches it with a new project containing that part's source and measurements.
 
 ### Files Likely Affected
 
-`desktop/src/**`, `desktop/src-tauri/src/lib.rs`, `desktop/src-tauri/src/supervisor.rs`, `desktop/vite.config.ts`, `desktop/package.json`, `desktop/tests/*.test.ts`, `docs/v2/screenshots/`.
+`desktop/src/**`, `desktop/src-tauri/src/lib.rs`, `desktop/src-tauri/src/supervisor.rs`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`, `desktop/vite.config.ts`, `desktop/package.json`, `desktop/tests/*.test.ts`, `src/nurb/mcp_server.py`, `docs/v2/screenshots/`.
 
 
 ---
@@ -303,7 +299,7 @@ This is the only fully permitted subscription path, and the ACP Claude adapter d
 - [ ] `desktop/src-tauri/src/claude.rs`: spawn `claude` from PATH (never bundled, never modified, never `--hide-claude-auth`), with `--permission-mode` defaulting to accept nurb's own tools (`--allowedTools "mcp__nurb__*"`), `--mcp-config` as a JSON string, `-p` with stream-json in both directions, resume by session id. Map `stream-json` events onto the existing `ChatEvent` channel (`agent_text`, `tool_call`, `tool_call_update`, `session_error`); permission requests via `--permission-prompt-tool` only if a non-nurb tool is requested.
 - [ ] Sign-in state: detect a missing login from the first stream event and show Anthropic's own instruction (`claude` in a terminal) rather than any in-app login. Never touch credentials.
 - [ ] Chat column on `@nurb/ui`: `AssistantMarkdown` for prose, `ToolStepCard` per tool call (verb, object, elapsed), `BuildCard` for `run_build`/`write_part_source` results with the composite inline, `SpecCard`, `MeasurementCard`. No separate activity rail.
-- [ ] Composer writes the user's turn to `messages` (so `check_messages` sees it) and to the process's stdin.
+- [ ] Composer writes the user's turn to `messages` and to the process's stdin.
 - [ ] Version check: require `claude` at 2.1.221 or newer for `--mcp-config` waits; older prints the upgrade instruction.
 - [ ] Tests: a fake `claude` script emitting recorded stream-json exercises the mapper in `cargo test`; a TS test renders a recorded transcript.
 
@@ -364,14 +360,14 @@ The shipped skill shrinks to "add the nurb MCP server, call `read_guide` first";
 
 ### Rationale
 
-Ladders 2 and 6 ship as published versions (ladder 3 shipped in Phase 2). nurb-app cannot start ladder 5 until the wheel exists on PyPI.
+Ladder 3 ships as a published version (ladder 4 shipped in Phase 2). nurb-app cannot start ladder 8 until the wheel exists on PyPI.
 
 ### Tasks
 
 - [ ] `src/nurb/skill.md` and `skills/nurb/SKILL.md`: the MCP instruction, the `read_guide` first rule, the workbench URL habit. `nurb skill --sync` and `nurb update` unchanged in shape.
 - [ ] `.github/workflows/publish.yml`: build the workbench before `uv build`; keep the tag, npm and GitHub release steps. `desktop/scripts/release.sh` unchanged except the version mapping from Phase 2.
 - [ ] README, `site/`, and the changelog entry via the `changelog` skill: what changed for a v1 user (`nurb import`), the dependency note, the offline note.
-- [ ] CONTRACT §5 status: ladders 2 and 6 shipped with versions.
+- [ ] CONTRACT §5 status: ladder 3 shipped with the version; ladder 5's desktop half noted as landed on main.
 - [ ] Run the `/release` skill for `1.0.0a1`.
 
 ### Success Criteria
@@ -379,7 +375,7 @@ Ladders 2 and 6 ship as published versions (ladder 3 shipped in Phase 2). nurb-a
 - `pip install nurb==1.0.0a1` in a clean venv followed by `nurb mcp` starts a server that Claude Code lists as connected.
 - `uv run pytest` passes including the version agreement tests across all four version strings.
 - The installed skill file contains the string `read_guide` and no mention of `nurb dev`.
-- CONTRACT §5 shows ladders 2, 3 and 6 as shipped with the exact versions.
+- CONTRACT §5 shows ladders 3 and 4 as shipped with the exact versions.
 
 ### Files Likely Affected
 
@@ -390,11 +386,11 @@ Ladders 2 and 6 ship as published versions (ladder 3 shipped in Phase 2). nurb-a
 
 ## Phase 11: The nurb.app bridge
 
-**Awaits ladders 4 and 7** (public part pages and the `nurb://open` contract; the `/sync` API and the `nurb-desktop` OAuth client). Check nurb.app for both before starting and stop with "blocked on ladder 4" or "blocked on ladder 7" if either is missing; no stubs.
+**Awaits ladders 1 and 2** (nurb-app's OAuth server with the `nurb-desktop` client, and the sync API). Check `https://nurb.app/.well-known/oauth-authorization-server` and the sync endpoints before starting and stop with "blocked on ladder 1" or "blocked on ladder 2" if either is missing; no stubs.
 
 ### Objective
 
-Settings gains a nurb.app section with browser sign-in; Publish per part; Back up per project with one-way push and explicit Pull; `nurb://open` opens a public part as a local project. Signed out means zero requests.
+Settings gains a nurb.app section with browser sign-in; Publish per part; Back up per project with one-way push, presigned uploads for GLBs and thumbnails, and explicit Pull. Local is the truth and a parent mismatch surfaces as a conflict. Signed out means zero requests.
 
 ### Rationale
 
@@ -402,11 +398,10 @@ The only optional network feature. It is last because it depends on another repo
 
 ### Tasks
 
-- [ ] `src/nurb/cloud.py`: OAuth 2.1 PKCE against `https://nurb.app/.well-known/oauth-authorization-server`, loopback redirect on a free port, public client `nurb-desktop`, scope `mcp`, rotating refresh tokens. Token storage through the macOS `security` CLI, a 0600 file elsewhere; no new dependency.
+- [ ] `src/nurb/cloud.py`: OAuth 2.1 PKCE against `https://nurb.app/.well-known/oauth-authorization-server`, loopback redirect on a free port, public client `nurb-desktop`, scopes `sync` and `mcp`, rotating refresh tokens. Token storage through the macOS `security` CLI, a 0600 file elsewhere; no new dependency.
 - [ ] `nurb login` / `nurb logout` and the serve endpoints the app calls for the same.
-- [ ] `PUT /sync/projects/:local_id` push with parts, measurements, printer profile and GLB hashes; the response's parity flag surfaces in the project row. `GET /sync/projects/:id/changes?since=` for Pull.
+- [ ] Push: `PUT /sync/projects/:local_id` with parts (source, card, `parent_revision_id`, `note`), measurements (value, `how`, `provisional`) and printer profile; for each entry in the response's `needs_upload`, `POST /sync/uploads` for presigned R2 URLs by content hash, upload the GLB and thumbnail, then `POST /sync/builds` with hash, stats and findings. A 409 carries the hosted head and shows as a conflict on the project row with the choice to keep local or pull. `GET /sync/projects/:id/changes?since=` for Pull.
 - [ ] Publish: a visibility picker plus copy link on the part; `publish_part` tool returns the public URL. The local tool returns a clear error when signed out.
-- [ ] `nurb://open?src=https://nurb.app/p/<slug>`: Tauri deep-link plugin registers the scheme; `get_public_part` pulls source and measurements into a new local project.
 - [ ] Settings copy: signed-out "Sign in to publish parts and back up projects"; signed-in "Signed in as @handle · Disconnect".
 - [ ] Network test: a signed-out serve and app make zero requests to `nurb.app` across a full session (assert with a recording HTTP transport).
 
@@ -416,12 +411,47 @@ The only optional network feature. It is last because it depends on another repo
 - `nurb login` completes in a browser and the serve's `/api/account` returns the handle.
 - Publishing a part returns a URL under `https://nurb.app/p/` that renders the part with sliders.
 - Turning on Back up pushes the project and the row shows parity; editing a part locally and pushing again shows the new revision on nurb.app.
-- Opening a `nurb://open?src=...` link with the app closed launches it with a new project containing the public part's measurements.
+- Pushing a project whose parent revision no longer matches the hosted head shows a conflict on the project row and writes nothing to nurb.app.
+- Turning on Back up for a project with two built parts results in two GLB uploads to presigned URLs followed by two `POST /sync/builds` calls (recorded by the test transport).
 
 ### Files Likely Affected
 
-`src/nurb/cloud.py`, `src/nurb/serve.py`, `src/nurb/mcp_server.py`, `src/nurb/cli.py`, `desktop/src/Settings.tsx`, `desktop/src-tauri/src/lib.rs`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`, `tests/test_cloud.py`.
+`src/nurb/cloud.py`, `src/nurb/serve.py`, `src/nurb/mcp_server.py`, `src/nurb/cli.py`, `desktop/src/Settings.tsx`, `desktop/src/App.tsx`, `desktop/src-tauri/src/lib.rs`, `tests/test_cloud.py`.
 
+
+---
+
+## Phase 12: The relay client
+
+**Awaits ladder 6** (nurb-app's relay door at `/mcp`, connector OAuth, and the `DesktopChannel` envelope in nurb-app `docs/ops/relay.md`). Check that document and the endpoint before starting and stop with "blocked on ladder 6" if either is missing; no stubs.
+
+### Objective
+
+While the app runs and the user is signed in, it holds one authenticated WebSocket to nurb.app and answers MCP JSON-RPC requests forwarded from claude.ai or ChatGPT by handing them to the local `nurb serve` `/mcp` endpoint. nurb.app stores nothing; the user's phone talks to their own nurb instance.
+
+### Rationale
+
+nurb.app runs no tools and no model. The relay is how a connector user reaches the engine without nurb.app ever running it, and it reuses the local server unchanged, so the contract stays written once.
+
+### Tasks
+
+- [ ] `src/nurb/relay.py`: connect to the `DesktopChannel` with the stored token, reconnect with backoff, answer each forwarded request by POSTing it to the local `/mcp` and returning the response correlated by id. Enforce the envelope limits (240 s, 150,000 characters) by returning an MCP error rather than a truncated result.
+- [ ] Only one relay per account: a second running app for the same user is told the channel is taken and shows it in Settings.
+- [ ] Settings: "Reachable from claude.ai and ChatGPT" status line with the connection state; disconnect stops the relay. Signed out or offline means no socket.
+- [ ] Tests: a fake channel server forwards recorded `tools/list` and `tools/call` frames and the relay's answers equal a direct call to `/mcp`.
+- [ ] Log each forwarded call as a `messages` row so the app's transcript shows what the connector did.
+
+### Success Criteria
+
+- With the app signed in and open, a `tools/list` forwarded through the fake channel returns the same list as a direct `POST /mcp` on the local port.
+- A forwarded `run_build` whose result exceeds 150,000 characters returns an MCP error naming the limit and no truncated payload.
+- Killing the channel server and restarting it results in the app reconnecting within thirty seconds without user action.
+- With the app signed out, no WebSocket to any `nurb.app` host is opened during a full session (recording transport).
+- A forwarded `write_part_source` appears in the app's transcript as a tool step attributed to the connector.
+
+### Files Likely Affected
+
+`src/nurb/relay.py`, `src/nurb/serve.py`, `src/nurb/cloud.py`, `desktop/src/Settings.tsx`, `desktop/src-tauri/src/lib.rs`, `tests/test_relay.py`.
 
 ---
 
@@ -441,6 +471,7 @@ The only optional network feature. It is last because it depends on another repo
 - **`nurb render` drops the browser.** The rasterizer ported from nurb-app renders every view offline, so the playwright extra goes away.
 - **Command names.** `serve`, `mcp`, `import`, `checkout` are guessable. `dev`, `new`, `launcher` are removed; the workbench and the app create projects.
 - **Never `--hide-claude-auth`, never broker login, never modify the binary.** Those three keep the Claude driver inside Anthropic's carve-out.
-- **`tools.json` is nurb-app's file.** The Ruby server is the reference implementation; this repo adopts the export and asks for changes through CONTRACT §2. A local edit to the file is a contract fork.
+- **`tools.json` is this repo's file and the only implementation is the local server.** nurb.app relays to it and never serves tools. A change to a tool name or schema is a CONTRACT §2 bump first.
+- **No `check_messages`.** Removed from the contract on 2026-09-13. The workbench transcript is read-only; conversation happens in the app's chat column or the connector's own chat.
 - **The Claude adapter is not dead.** It stays selectable and Phase 9 records whether HTTP `mcpServers` reaches the model on 0.76.0. When claude-agent-acp #883 closes, the adapter becomes an option again without code churn.
 - **Ask before the bench trials** (Phase 3). They spend the subscription.
