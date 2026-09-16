@@ -1,6 +1,6 @@
 # nurb v2 Progress
 
-## Status: Phases 1 to 13 - Complete (Phase 13's Gemini criterion blocked on sign-in), Phase 14 - Code complete (2026-09-16), the 1.0.0a1 release held for Josh
+## Status: Phases 1 to 13 - Complete (Phase 13's Gemini criterion blocked on sign-in), Phase 14 - Complete (2026-09-16, pushed as branch `v2`, no release), Phase 15 - Not Started
 
 ## Quick Reference
 - Research: `docs/v2/RESEARCH.md`
@@ -660,8 +660,8 @@
 ---
 
 ### Phase 14: App-only: delete the CLI, the Connect panel, and the 1.0.0a1 release
-**Status:** Code complete (2026-09-16); the release, the PR closures and the CONTRACT sha wait for Josh
-**Verified:** Partial (6 of 8 criteria pass: 1, 2, 3, 4, 5, 6; criterion 7 shows `<sha>` until the merge; criterion 8 is the release itself)
+**Status:** Completed (2026-09-16); pushed as branch `v2`, commit `9e93982`, unmerged by decision
+**Verified:** Yes (criteria 1 to 7 pass; criterion 8, the release, dropped with the release step)
 
 #### Tasks Completed
 - Deleted `src/nurb/cli.py`, `src/nurb_entrypoint/` (with the stdio proxy), `src/nurb/skill.md`, `src/nurb/agents.md`, `skills/`, `tests/test_cli.py`, `site/install.sh`; `pyproject.toml` lost `[project.scripts]`, `nurb_entrypoint` and the two markdown files from `source-include`. `DEFAULT_PORT` and `_is_free` live in `serve.py`, `project_root` in `assembly.py`. Every user-facing string and doctrine line that named a `nurb X` command now names the capability (`read_guide`, `look`, "the checks"); the 13 notch cards regenerated their AUTO marker line.
@@ -696,7 +696,7 @@
 - **The bench harness is not rewritten in this phase.** `docs/v2/bench/bench_tools.py` still runs `.venv/bin/nurb import`, `nurb checkout` and a stdio `mcp.json`; the Post-Implementation bench re-run on `1.0.0a1` owns moving it to `python -m nurb.serve`, the import and checkout routes, and an HTTP `mcp.json` with the token.
 
 #### Blockers
-- The `1.0.0a1` release (the `/release` ceremony, the GitHub release with the app build and updater manifest, closing PRs #170, #237, #246, #264, filling the `<sha>` in CONTRACT §5) is outward-facing and waits for Josh's go-ahead: it merges the whole uncommitted `v2` branch to main.
+- (none) The release step was dropped 2026-09-16 (Josh: no need to publish; v1 on main is still in use). The whole v2 tree is committed as `9e93982` and pushed as branch `v2`, unmerged; CONTRACT §5 names that commit for nurb-app. The four v1 PR closures wait for the day v2 merges.
 
 ---
 
@@ -741,7 +741,7 @@
 ### 2026-09-16 (Phase 14)
 - App-only: the CLI, the stdio proxy, the skill files and the PyPI and npm publish jobs deleted; `python -m nurb.serve` is the entry the app spawns; `connect.json` keeps the MCP token and port; `POST /api/projects/{id}/checkout` replaces the fallback's subprocess; the MCP server sends `instructions`; Settings gained Connect with Claude Code, Codex and Cursor commands; README, site, CONTRIBUTING, CLAUDE.md and CONTRACT §5 rewritten.
 - Four implementers in parallel (Python, Rust, docs, Connect panel), then one live Claude Code connect, one adversarial pass (three fixes) and one live desktop drive that found the migration defect.
-- Not done: the release itself and the PR closures, held for Josh. Next: `/release 1.0.0a1` after the go-ahead, then fill CONTRACT §5's `<sha>`.
+- Josh: no release needed, v1 on main stays live. Committed everything as `9e93982` and pushed branch `v2`; CONTRACT §5 names it. Next: Phase 15, which first checks ladders 1 and 2.
 
 ### 2026-09-16 (app-only, from the nurb-app side)
 - Josh: focus is the desktop app, MCP into it, and nurb.app for sharing; no `nurb` command line to maintain. Phase 14 re-cut: delete `cli.py`, the console script, the skill and the PyPI job; `python -m nurb.serve`; Import, Sign in and the fallback's checkout become serve routes; the MCP server sends `instructions`; Settings gets a Connect panel with the `claude mcp add` one-liner; Windows and Linux come as app builds after 1.0. CONTRACT §1 loses the skill row and gains the three-doors paragraph; Phase 15 loses `nurb login`/`logout`

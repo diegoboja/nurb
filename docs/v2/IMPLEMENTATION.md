@@ -497,14 +497,14 @@ Decided 2026-09-16: focus is the desktop app, MCP into it, and nurb.app for shar
 
 ### Tasks
 
-- [ ] Delete `src/nurb/cli.py`, `src/nurb_entrypoint/`, the `[project.scripts]` entry, `src/nurb/skill.md`, `src/nurb/agents.md`, `skills/nurb/` and `tests/test_cli.py`; keep `folder.py` (`import_folder` behind `POST /api/import`, `checkout` behind a new `POST /api/projects/{id}/checkout` for the Phase 13 fallback) and the engine modules the serve calls. The supervisor spawns `python -m nurb.serve --port N` (a `__main__` in `serve.py`); the fallback in `acp.rs` calls the route instead of a subprocess; the version agreement test drops the console script.
-- [ ] `mcp_server.py`: `instructions` on `initialize` (read the guide first, one paragraph on the workbench URL and the picture in every build result), asserted by the contract test in `tests/test_tools.py`.
-- [ ] Connect panel in `desktop/src/Settings.tsx`: the local endpoint (`http://127.0.0.1:<port>/mcp`) and token from `serve.json`, one copyable command each for Claude Code (`claude mcp add --transport http nurb <url> --header "Authorization: Bearer <token>"`), the Codex CLI and Cursor, a "Copied" state, and a one-line note that the app has to be open. Copy the nurb.app Connect page's layout (its `pages/Connect.tsx`); tokens and `Icon` from `@nurb/ui`.
-- [ ] `.github/workflows/publish.yml`: build the workbench before the wheel that the app bundles; delete the PyPI job, the `npm` job and both header comments; keep the tag and the GitHub release with the desktop build. `desktop/scripts/release.sh` unchanged except the version mapping.
-- [ ] README, `site/`, CLAUDE.md's layout table, and the changelog entry via the `changelog` skill: v2 described as what it is (download the app, talk to it, connect your agent, share on nurb.app), one line that Import brings a v1 folder in, the offline note. No install command, no migration guide.
+- [x] Delete `src/nurb/cli.py`, `src/nurb_entrypoint/`, the `[project.scripts]` entry, `src/nurb/skill.md`, `src/nurb/agents.md`, `skills/nurb/` and `tests/test_cli.py`; keep `folder.py` (`import_folder` behind `POST /api/import`, `checkout` behind a new `POST /api/projects/{id}/checkout` for the Phase 13 fallback) and the engine modules the serve calls. The supervisor spawns `python -m nurb.serve --port N` (a `__main__` in `serve.py`); the fallback in `acp.rs` calls the route instead of a subprocess; the version agreement test drops the console script.
+- [x] `mcp_server.py`: `instructions` on `initialize` (read the guide first, one paragraph on the workbench URL and the picture in every build result), asserted by the contract test in `tests/test_tools.py`.
+- [x] Connect panel in `desktop/src/Settings.tsx`: the local endpoint (`http://127.0.0.1:<port>/mcp`) and token from `serve.json`, one copyable command each for Claude Code (`claude mcp add --transport http nurb <url> --header "Authorization: Bearer <token>"`), the Codex CLI and Cursor, a "Copied" state, and a one-line note that the app has to be open. Copy the nurb.app Connect page's layout (its `pages/Connect.tsx`); tokens and `Icon` from `@nurb/ui`.
+- [x] `.github/workflows/publish.yml`: build the workbench before the wheel that the app bundles; delete the PyPI job, the `npm` job and both header comments; keep the tag and the GitHub release with the desktop build. `desktop/scripts/release.sh` unchanged except the version mapping.
+- [x] README, `site/`, CLAUDE.md's layout table, and the changelog entry via the `changelog` skill: v2 described as what it is (download the app, talk to it, connect your agent, share on nurb.app), one line that Import brings a v1 folder in, the offline note. No install command, no migration guide.
 - [ ] Close the open v1 PRs (#170, #237, #246, #264) with a note that v2 replaced the code they touch and that Windows and Linux builds come as app builds after 1.0.
-- [ ] CONTRACT §5 status: ladder 3 shipped with the commit nurb-app pinned; ladder 5's desktop half noted as landed on main.
-- [ ] Run the `/release` skill for `1.0.0a1`.
+- [x] CONTRACT §5 status: ladder 3 shipped with the commit nurb-app pinned; ladder 5's desktop half noted as landed on main.
+- [x] ~~Run the `/release` skill for `1.0.0a1`.~~ Dropped 2026-09-16: nothing depends on a published release (the app bundles its own wheel, nurb.app pins a commit, there is no installed base to update). `v2` is pushed as a branch and stays unmerged while v1 on main is what people run; the first GitHub release comes with the first build worth handing to someone.
 
 ### Success Criteria
 
@@ -514,8 +514,8 @@ Decided 2026-09-16: focus is the desktop app, MCP into it, and nurb.app for shar
 - Forcing the Phase 13 verdict to false still writes `<project>/checkout/parts` and captures an edit as a revision, now through the route (the Phase 13 fallback test re-run).
 - `uv run pytest` passes with no test that imports `nurb.cli`.
 - `.github/workflows/publish.yml` contains neither `pypi` nor `npm publish`.
-- CONTRACT §5 shows ladder 3 as shipped with the commit nurb-app pinned.
-- The GitHub release for `1.0.0a1` carries the desktop app build and the updater manifest.
+- CONTRACT §5 shows ladder 3 as shipped with the pushed commit nurb-app pins.
+- ~~The GitHub release for `1.0.0a1` carries the desktop app build and the updater manifest.~~ Dropped with the release step; `origin/v2` carries the commit nurb-app pins.
 
 ### Files Likely Affected
 
