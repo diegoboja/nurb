@@ -1,6 +1,6 @@
 [project]
 name = "nurb"
-version = "0.26.0"
+version = "1.0.0a1"
 description = "Agentic CAD for 3D printing"
 readme = "README.md"
 authors = [
@@ -18,8 +18,9 @@ classifiers = [
 ]
 dependencies = [
     "build123d>=0.11.1",
+    "mcp>=2.2.0",
+    "pillow>=11.0",
     "trimesh>=4.12.2",
-    "watchdog>=6.0.0",
     "websockets>=16.1.1",
 ]
 
@@ -27,19 +28,11 @@ dependencies = [
 Repository = "https://github.com/Shpigford/nurb"
 Issues = "https://github.com/Shpigford/nurb/issues"
 
-[project.optional-dependencies]
-# `nurb render` screenshots the viewer, which means a browser. Optional because it is
-# the only command that needs one and the download is larger than everything else here.
-render = ["playwright>=1.49"]
-
 [dependency-groups]
 dev = [
     "pytest>=8.0",
     "pytest-xdist>=3.8.0",
 ]
-
-[project.scripts]
-nurb = "nurb_entrypoint:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -49,12 +42,10 @@ requires = ["uv_build>=0.11.26,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = ["nurb", "nurb_entrypoint"]
+module-name = "nurb"
 source-include = [
-    "src/nurb/viewer.html",
     "src/nurb/doctrine.md",
-    "src/nurb/agents.md",
-    "src/nurb/skill.md",
     "src/nurb/printers.toml",
-    "src/nurb/vendor/**/*",
+    "src/nurb/tools.json",
+    "src/nurb/workbench/**/*",
 ]

@@ -1,0 +1,184 @@
+/* nurb design tokens. Import this once in the consuming app's Tailwind 4 entry, after `@import "tailwindcss"`, and add `@source "../node_modules/@nurb/ui/dist"` so the classes the components name survive the production build. */
+
+/* ---------------------------------------------------------------------------
+   Fonts. Satoshi announces, Instrument Sans speaks, JetBrains Mono measures.
+   Satoshi is referenced by name only: its Fontshare license forbids
+   redistribution, so the consuming app supplies the file. The other two ship
+   with this package under the OFL. Never italic (DESIGN.md §3).
+   --------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("./fonts/InstrumentSans-Variable.ttf") format("truetype");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./fonts/JetBrainsMono-Variable.ttf") format("truetype");
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+/* ---------------------------------------------------------------------------
+   nurb design tokens — docs/core/DESIGN.md §2–§4, mirrored from the Paper file
+   "nurb — product design". One cool slate ramp, one accent, three semantics.
+   `static` so a consumer gets every variable even where its scanner never sees
+   the utility that would have pulled it in.
+   --------------------------------------------------------------------------- */
+
+@theme static {
+  --font-display: "Satoshi", "Instrument Sans", system-ui, sans-serif;
+  --font-sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Surfaces and lines */
+  --color-ground: #ffffff;
+  --color-raised: #eef2f8;
+  --color-stage: #e5f0fb;
+  --color-stage-line: #c9dcee;
+  --color-line-soft: #e8edf4;
+  --color-line: #dce3ed;
+  --color-panel-edge: #bdcee2;
+
+  /* Text */
+  --color-faint: #6f7c8d;
+  --color-muted: #64707f;
+  --color-on-stage-muted: #556174;
+  --color-ink-soft: #38424f;
+  --color-ink: #121821;
+
+  /* Accent and semantics */
+  --color-accent: #ff5230;
+  --color-accent-hover: #f0421f;
+  --color-accent-ink: #d6380e;
+  --color-accent-wash: #ffede8;
+  --color-pass: #00a45a;
+  --color-pass-wash: #e2f7ed;
+  --color-warn: #e08700;
+  --color-warn-wash: #fdf1dc;
+  --color-fail: #b3001b;
+  --color-fail-wash: #fce8ea;
+
+  /* Part illustration */
+  --color-part-top: #ff7050;
+  --color-part-front: #f0421f;
+  --color-part-side: #c42d12;
+  --color-part-edge: #a32409;
+
+  /* Radius tiers: 12 panels, 6 content, 3 controls */
+  --radius-panel: 12px;
+  --radius-content: 6px;
+  --radius-control: 3px;
+
+  /* The one shadow, blue-tinted. Only floating panels cast it. */
+  --shadow-panel: 0 1px 2px rgb(24 42 74 / 0.08), 0 3px 8px rgb(24 42 74 / 0.06);
+  --shadow-control: 0 1px 2px rgb(24 42 74 / 0.08);
+
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+}
+
+/* ---------------------------------------------------------------------------
+   Utilities that recur on every screen.
+   --------------------------------------------------------------------------- */
+
+/* A floating panel: pure white, hairline panel-edge, the shadow. */
+@utility panel {
+  background-color: var(--color-ground);
+  border: 1px solid var(--color-panel-edge);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Mono ALL-CAPS label: 10px / 500 / 0.14em. The default voice of every strip. */
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Mono caption: 10px / 400 / 0.09em. Secondary lines, timestamps, dims.
+   Tabular figures because the elapsed counters live here and must not jitter. */
+@utility mono-caption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mono value: 11px / 500 readouts. */
+@utility mono-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mono identifier: 10.5px part names, file names, tab labels. */
+@utility mono-id {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+}
+
+/* Filled button label. The design's buttons are mono caps at 10.5 / 0.13em. */
+@utility btn-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+/* Chat prose: 13.5 / 20. */
+@utility text-chat {
+  font-size: 13.5px;
+  line-height: 20px;
+}
+
+/* Headline: Satoshi, never italic. */
+@utility font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+/* Every label, tab and button is chrome: a drag that starts on it must not select it. */
+@utility chrome {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Streaming caret for markdown replies: rides on the last rendered node so it
+   follows the text instead of dropping below the closed paragraph or list. */
+.md-streaming > :last-child::after,
+.md-streaming > :is(ol, ul):last-child > li:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background-color: var(--color-accent);
+  animation: var(--animate-pulse);
+}
+.md-streaming > :is(ol, ul):last-child::after {
+  content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

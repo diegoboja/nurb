@@ -11,39 +11,32 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
-import { IconChevronDown, IconMessagePlus, IconPaperclip } from "./Icons";
-import Markdown from "./Markdown";
+import {
+  AssistantMarkdown,
+  BuildCard,
+  Icon,
+  MeasurementCard,
+  SpecCard,
+  ToolStepCard,
+  type Message,
+} from "@nurb/ui";
+import { absolute, addMessage } from "@nurb/workbench/api";
+import {
+  applyChatEvent,
+  claudeNote,
+  describe,
+  type ChatEvent,
+  type Item,
+  type PermissionOption,
+  pruneLanded,
+  withNote,
+} from "./chatItems";
 import { playChime, shouldPlayCompletionChime } from "./chime";
 import { AttachmentDraft, restoreDraftText } from "./chatDraft";
 
 // The whole-project conversation rides the per-part plumbing under a name no part
 // file can have. Twins live in App.tsx's mount and acp.rs's context line.
 export const PROJECT_CHAT = "//project";
-
-// Mirrors ChatEvent in src-tauri/src/acp.rs.
-type ChatEvent =
-  | { type: "user_text"; text: string }
-  | { type: "agent_text"; text: string }
-  | { type: "agent_thought"; text: string }
-  | { type: "session_info"; title: string | null }
-  | { type: "note"; text: string }
-  | { type: "tool_call"; id: string; title: string; kind?: string; status: string; input?: string; output?: string }
-  | { type: "tool_call_update"; id: string; title?: string; status?: string; input?: string; output?: string }
-  | { type: "plan"; entries: PlanEntry[] }
-  | { type: "permission_request"; id: number; title: string; options: PermissionOption[] }
-  | { type: "permission_resolved"; id: number }
-  | { type: "session_error"; message: string };
-
-type PlanEntry = { content: string; status: string };
-type PermissionOption = { optionId: string; name: string; kind: string };
-
-type Item =
-  | { kind: "user"; text: string; files?: string[]; localId?: number }
-  | { kind: "agent"; text: string }
-  | { kind: "thought"; text: string }
-  | { kind: "tool"; id: string; title: string; toolKind?: string; status: string; input?: string; output?: string }
-  | { kind: "plan"; entries: PlanEntry[] }
-  | { kind: "note"; text: string };
 
 type Permission = { id: number; title: string; options: PermissionOption[] };
 
@@ -67,46 +60,7 @@ export const AGENT_LABEL: Record<string, string> = {
   gemini: "Gemini",
   cursor: "Cursor",
   grok: "Grok",
-};
-
-const TOOL_STATUS_LABEL: Record<string, string> = {
-  pending: "waiting",
-  in_progress: "working…",
-  completed: "done",
-  failed: "failed",
-};
-
-// Tool titles arrive as developer-speak ("Edit parts/lid.py", "nurb check").
-// The app's audience is hobbyists, so cards and permission dialogs translate
-// what they can into plain activity language and fall back to the raw title,
-// which stays untouched in state and in the debug event log.
-const FILE_TITLE = /^(Read|Edit|Write)\s+(?:.*\/)?parts\/([A-Za-z0-9_]+)\.py$/;
-const NURB_TITLE = /^(?:uv run\s+)?nurb\s+([a-z]+)/;
-const FILE_VERBS: Record<string, [string, string]> = {
-  Read: ["looking at", "look at"],
-  Edit: ["editing", "edit"],
-  Write: ["creating", "create"],
-};
-const NURB_VERBS: Record<string, [string, string]> = {
-  build: ["building the part", "build the part"],
-  check: ["checking printability", "check printability"],
-  inspect: ["inspecting the part", "inspect the part"],
-  verify: ["double-checking the part", "double-check the part"],
-  compare: ["measuring against the original", "measure against the original"],
-  render: ["rendering a preview", "render a preview"],
-  export: ["exporting print files", "export print files"],
-  rules: ["reading the design rules", "read the design rules"],
-  api: ["checking the toolbox", "check the toolbox"],
-  card: ["updating the part's notes", "update the part's notes"],
-};
-const KIND_VERBS: Record<string, [string, string]> = {
-  read: ["reading project files", "read project files"],
-  edit: ["editing project files", "edit project files"],
-  delete: ["removing project files", "remove project files"],
-  search: ["searching the project", "search the project"],
-  execute: ["running a command", "run a command"],
-  fetch: ["looking something up", "look something up"],
-  think: ["thinking", "think"],
+  "claude-acp": "Claude (adapter)",
 };
 
 const basename = (path: string) => path.split("/").pop() ?? path;
@@ -119,20 +73,47 @@ function summarize(config: ConfigRow[]): string {
     .join(" · ");
 }
 
-// mode 0 is the activity form for cards ("editing lid"); mode 1 the plain verb
-// form for permission dialogs ("edit lid").
-function describe(title: string, kind: string | undefined, mode: 0 | 1): string {
-  const file = title.match(FILE_TITLE);
-  if (file) return `${FILE_VERBS[file[1]][mode]} ${file[2]}`;
-  const nurb = title.match(NURB_TITLE);
-  if (nurb && NURB_VERBS[nurb[1]]) return NURB_VERBS[nurb[1]][mode];
-  if (kind && KIND_VERBS[kind]) return KIND_VERBS[kind][mode];
-  return title;
+const CLAUDE_SIGN_IN =
+  "Sign in to Claude Code first: open a terminal, run claude, and follow the prompts. Then come back here.";
+
+/** One row of the project's own transcript. */
+function Stored({ message }: { message: Message }) {
+  const payload = message.payload;
+  return (
+    <div className="flex flex-col gap-3">
+      {message.content ? (
+        message.role === "user" ? (
+          <p className="text-chat ml-8 rounded-content bg-raised px-3 py-2 text-ink">
+            {message.content}
+          </p>
+        ) : (
+          <div className="text-chat text-ink-soft">
+            <AssistantMarkdown content={message.content} />
+          </div>
+        )
+      ) : null}
+      {payload?.type === "build" && (
+        // The serve's render path is relative to the serve, not to this page.
+        <BuildCard
+          build={{
+            ...payload.build,
+            render_url: payload.build.render_url ? absolute(payload.build.render_url) : undefined,
+          }}
+        />
+      )}
+      {payload?.type === "spec" && (
+        <SpecCard spec={payload.spec} model={payload.model} effort={payload.effort} />
+      )}
+      {payload?.type === "measurement" && <MeasurementCard measurement={payload.measurement} />}
+      {payload?.type === "step" && <ToolStepCard step={payload.step} />}
+    </div>
+  );
 }
 
 function Chat({
   path,
   part,
+  messages,
   agent,
   agents,
   resume,
@@ -146,6 +127,9 @@ function Chat({
   onSignIn,
 }: {
   path: string;
+  // The project's own transcript, which outlives any one conversation. Hidden
+  // columns are handed an empty list, since only the selected project loads one.
+  messages: Message[];
   // The column's identity: this is the part's conversation, whatever the
   // viewer shows by the time a reply lands.
   part: string;
@@ -175,6 +159,11 @@ function Chat({
   // The sentinel never reaches copy: everywhere the column says its name, the
   // project conversation speaks of the project.
   const isProject = part === PROJECT_CHAT;
+  // Claude runs through the app's own driver, which stores the conversation in
+  // the project rather than replaying one of its own.
+  const isClaude = agent === "claude";
+  // The folder's last segment is the project's id in the store.
+  const projectId = path.split("/").filter(Boolean).pop() ?? "";
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
   // A resumed transcript starts loading after the first paint, so treat it as
@@ -192,6 +181,19 @@ function Chat({
   }
   const attachmentDraft = attachmentDraftRef.current;
   const [dropping, setDropping] = useState(false);
+  // The project's transcript in the order it was written, then whatever this
+  // turn has produced that has not reached the store yet.
+  const ordered = [...messages].sort(
+    (a, b) => (a.sequence_number ?? 0) - (b.sequence_number ?? 0),
+  );
+  const said = messages.length > 0 || items.length > 0;
+  // The newest stored row, read at event time so a step remembers where the
+  // transcript stood when it was called.
+  const seqRef = useRef(0);
+  seqRef.current = messages.reduce((top, m) => Math.max(top, m.sequence_number ?? 0), 0);
+  useEffect(() => {
+    setItems((list) => pruneLanded(list, messages));
+  }, [messages]);
   // The model and effort this conversation runs on. Empty before the agent has
   // ever reported its lists, which is only ever the first chat on this Mac.
   const [config, setConfig] = useState<ConfigRow[]>([]);
@@ -239,7 +241,7 @@ function Chat({
   useEffect(() => {
     const pane = scrollRef.current;
     if (pane) pane.scrollTop = pane.scrollHeight;
-  }, [items, permissions, busy]);
+  }, [messages, items, permissions, busy]);
 
   useEffect(() => {
     // Dev-only test hook: the Rust side forwards loopback-socket text here so
@@ -249,7 +251,7 @@ function Chat({
       if (inputRef.current) inputRef.current.value = event.payload;
     });
     return () => {
-      unlisten.then((stop) => stop());
+      unlisten.then((stop) => stop()).catch(() => {});
     };
   }, []);
 
@@ -261,7 +263,7 @@ function Chat({
       inputRef.current?.form?.requestSubmit();
     });
     return () => {
-      unlisten.then((stop) => stop());
+      unlisten.then((stop) => stop()).catch(() => {});
     };
   }, [hidden]);
 
@@ -296,105 +298,57 @@ function Chat({
       }
     });
     return () => {
-      unlisten.then((stop) => stop());
+      unlisten.then((stop) => stop()).catch(() => {});
     };
   }, [hidden, attachmentDraft]);
 
-  const applyEvent = useCallback((event: ChatEvent) => {
-    switch (event.type) {
-      case "user_text":
-        // Only replayed history carries user chunks; live turns render the
-        // composer text directly in send().
-        setItems((list) => {
-          const last = list[list.length - 1];
-          if (last && last.kind === "user") {
-            return [...list.slice(0, -1), { ...last, text: last.text + event.text }];
+  const applyEvent = useCallback(
+    (event: ChatEvent) => {
+      switch (event.type) {
+        case "session_info":
+          // Titles have no home since the visible session list went away.
+          return;
+        case "permission_request":
+          setPermissions((list) => [
+            ...list,
+            { id: event.id, title: event.title, options: event.options },
+          ]);
+          return;
+        case "permission_resolved":
+          setPermissions((list) => list.filter((p) => p.id !== event.id));
+          return;
+        case "prose":
+          // The finished block belongs to the project, not to this session, so
+          // it is written to the transcript and the streaming copy is dropped.
+          if (isClaude) {
+            // Drop the streaming copy only once the row exists, or the text
+            // blinks out for the refetch's round trip.
+            addMessage(projectId, "assistant", event.text)
+              .then(() => setItems((list) => applyChatEvent(list, event, Date.now(), seqRef.current)))
+              .catch((e) =>
+                setItems((list) => [...list, { kind: "note", text: String(e) }]),
+              );
+            return;
           }
-          return [...list, { kind: "user", text: event.text }];
-        });
-        break;
-      case "session_info":
-        // Titles have no home since the visible session list went away.
-        break;
-      case "note":
-        setItems((list) => [...list, { kind: "note", text: event.text }]);
-        break;
-      case "agent_text":
-      case "agent_thought": {
-        const kind = event.type === "agent_text" ? "agent" : "thought";
-        setItems((list) => {
-          const last = list[list.length - 1];
-          if (last && last.kind === kind) {
-            return [...list.slice(0, -1), { ...last, text: last.text + event.text }];
+          break;
+        case "session_error": {
+          // The dead session is gone from the Rust map too; forgetting it here
+          // is what lets the next send start the fresh chat the note promises.
+          // The driver's session lives on disk, so the next start resumes it.
+          if (isClaude && sessionRef.current) resumeRef.current = sessionRef.current;
+          sessionRef.current = null;
+          const trouble = isClaude ? claudeNote(event.message) : null;
+          if (trouble) {
+            setItems((list) => withNote(list, trouble));
+            return;
           }
-          return [...list, { kind, text: event.text } as Item];
-        });
-        break;
+          break;
+        }
       }
-      case "tool_call":
-        setItems((list) => [
-          ...list,
-          {
-            kind: "tool",
-            id: event.id,
-            title: event.title,
-            toolKind: event.kind,
-            status: event.status,
-            input: event.input,
-            output: event.output,
-          },
-        ]);
-        break;
-      case "tool_call_update":
-        // Absent fields mean unchanged; present ones replace (ACP semantics).
-        setItems((list) =>
-          list.map((item) =>
-            item.kind === "tool" && item.id === event.id
-              ? {
-                  ...item,
-                  title: event.title ?? item.title,
-                  status: event.status ?? item.status,
-                  input: event.input ?? item.input,
-                  output: event.output ?? item.output,
-                }
-              : item,
-          ),
-        );
-        break;
-      case "plan":
-        setItems((list) => {
-          let index = -1;
-          for (let i = list.length - 1; i >= 0; i--) {
-            if (list[i].kind === "plan") {
-              index = i;
-              break;
-            }
-          }
-          if (index >= 0) {
-            const next = [...list];
-            next[index] = { kind: "plan", entries: event.entries };
-            return next;
-          }
-          return [...list, { kind: "plan", entries: event.entries }];
-        });
-        break;
-      case "permission_request":
-        setPermissions((list) => [
-          ...list,
-          { id: event.id, title: event.title, options: event.options },
-        ]);
-        break;
-      case "permission_resolved":
-        setPermissions((list) => list.filter((p) => p.id !== event.id));
-        break;
-      case "session_error":
-        // The dead session is gone from the Rust map too; forgetting it here
-        // is what lets the next send start the fresh chat the note promises.
-        sessionRef.current = null;
-        setItems((list) => [...list, { kind: "note", text: event.message }]);
-        break;
-    }
-  }, []);
+      setItems((list) => applyChatEvent(list, event, Date.now(), seqRef.current));
+    },
+    [isClaude, projectId],
+  );
 
   const refreshConfig = useCallback(() => {
     invoke<ConfigRow[]>("chat_config", { agent, sessionId: sessionRef.current })
@@ -410,7 +364,7 @@ function Chat({
     // install has no picker until something else remounts it.
     const unlisten = listen("agent-config", () => refreshConfig());
     return () => {
-      unlisten.then((stop) => stop());
+      unlisten.then((stop) => stop()).catch(() => {});
     };
   }, [refreshConfig]);
 
@@ -483,13 +437,16 @@ function Chat({
     } catch (e) {
       const message = String(e);
       if (message === "Error: chat closed") return;
-      if (message.includes("auth_required")) {
+      const trouble = isClaude ? claudeNote(message) : null;
+      if (trouble) {
+        setItems((list) => withNote(list, trouble));
+      } else if (message.includes("auth_required")) {
         setAuthNeeded("resume");
       } else {
         setItems((list) => [...list, { kind: "note", text: message }]);
       }
     }
-  }, [ensureSession]);
+  }, [ensureSession, isClaude]);
 
   useEffect(() => {
     // A history session replays its transcript when it opens, not on the first send; reuse this path after sign-in.
@@ -501,21 +458,30 @@ function Chat({
       sendingRef.current = true;
       const startedAt = Date.now();
       const localId = nextLocalIdRef.current++;
-      setItems((list) => [
-        ...list,
-        {
-          kind: "user",
-          text,
-          files: files.length ? files.map(basename) : undefined,
-          localId,
-        },
-      ]);
+      // Claude's turn is stored, not replayed, so the line comes back from the
+      // project instead of living here for the session.
+      if (!isClaude) {
+        setItems((list) => [
+          ...list,
+          {
+            kind: "user",
+            text,
+            files: files.length ? files.map(basename) : undefined,
+            localId,
+          },
+        ]);
+      }
       setBusy(true);
       onBusyRef.current(true);
       setAuthNeeded("none");
       let completed = false;
+      let stored = false;
       try {
         const session = await ensureSession();
+        if (isClaude) {
+          await addMessage(projectId, "user", text);
+          stored = true;
+        }
         await invoke<string>("send_prompt", {
           sessionId: session,
           text,
@@ -525,19 +491,23 @@ function Chat({
         completed = true;
       } catch (e) {
         const message = String(e);
-        if (message.includes("auth_required")) {
+        const trouble = isClaude ? claudeNote(message) : null;
+        if (trouble || message.includes("auth_required")) {
           // Nothing was sent. Restore it ahead of any next draft composed
           // during the turn, and keep both turns' attachments.
-          setItems((list) =>
-            list.filter((item) => item.kind !== "user" || item.localId !== localId),
-          );
-          if (inputRef.current) {
-            inputRef.current.value = restoreDraftText(text, inputRef.current.value);
+          if (!stored) {
+            setItems((list) =>
+              list.filter((item) => item.kind !== "user" || item.localId !== localId),
+            );
+            if (inputRef.current) {
+              inputRef.current.value = restoreDraftText(text, inputRef.current.value);
+            }
+            attachmentDraft.restore(files);
           }
-          attachmentDraft.restore(files);
-          setAuthNeeded("resend");
+          if (trouble) setItems((list) => withNote(list, trouble));
+          else setAuthNeeded("resend");
         } else {
-          setItems((list) => [...list, { kind: "note", text: message }]);
+          setItems((list) => withNote(list, message));
         }
       } finally {
         sendingRef.current = false;
@@ -549,7 +519,7 @@ function Chat({
         if (shouldPlayCompletionChime(completed, Date.now() - startedAt)) playChime();
       }
     },
-    [ensureSession, part, attachmentDraft],
+    [ensureSession, part, attachmentDraft, isClaude, projectId],
   );
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -672,14 +642,14 @@ function Chat({
                 aria-expanded={switching}
                 disabled={busy || starting}
                 title={
-                  items.length > 0
+                  said
                     ? "switch agents, which starts a fresh conversation"
                     : "switch agents"
                 }
                 onClick={() => setSwitching((open) => !open)}
               >
                 {label}
-                <IconChevronDown />
+                <Icon name="chevron-down" className="size-3" />
               </button>
               {switching && (
                 <>
@@ -694,7 +664,7 @@ function Chat({
                         }
                         onClick={() => {
                           setSwitching(false);
-                          if (option.id !== agent) onAgent(option.id, items.length === 0);
+                          if (option.id !== agent) onAgent(option.id, !said);
                         }}
                       >
                         {option.label}
@@ -703,7 +673,7 @@ function Chat({
                         )}
                       </button>
                     ))}
-                    {items.length > 0 && (
+                    {said && (
                       <p className="chat-switcher-note">
                         Switching starts a fresh conversation. This one is kept.
                       </p>
@@ -716,20 +686,20 @@ function Chat({
             <span>{label}</span>
           )}
         </span>
-        {items.length > 0 && (
+        {said && (
           <button
             className="chat-fresh"
             title="set this conversation aside and start a fresh one"
             disabled={busy || starting}
             onClick={onFresh}
           >
-            <IconMessagePlus />
+            <Icon name="chat" className="size-3.5" />
             start fresh
           </button>
         )}
       </div>
       <div className="chat-transcript" ref={scrollRef}>
-        {items.length === 0 && !busy && (
+        {!said && !busy && (
           <div className="chat-empty">
             {isProject
               ? `This conversation covers the whole project. Ask ${label} for new parts, or for changes every part should share.`
@@ -737,14 +707,23 @@ function Chat({
           </div>
         )}
         {/* Nothing said yet and the agent is known to be signed out: ask before the first message bounces. */}
-        {items.length === 0 && !starting && authNeeded === "none" && signedOut && (
+        {!said && !starting && authNeeded === "none" && signedOut && (
           <div className="chat-auth">
-            Sign in to {label} to start.{" "}
-            <button className="chat-auth-button" disabled={signingIn} onClick={signIn}>
-              {signingIn ? "signing in…" : "sign in"}
-            </button>
+            {isClaude ? (
+              CLAUDE_SIGN_IN
+            ) : (
+              <>
+                Sign in to {label} to start.{" "}
+                <button className="chat-auth-button" disabled={signingIn} onClick={signIn}>
+                  {signingIn ? "signing in…" : "sign in"}
+                </button>
+              </>
+            )}
           </div>
         )}
+        {ordered.map((message) => (
+          <Stored key={message.id} message={message} />
+        ))}
         {items.map((item, index) => {
           switch (item.kind) {
             case "user":
@@ -764,8 +743,8 @@ function Chat({
               );
             case "agent":
               return (
-                <div key={index} className="chat-agent">
-                  <Markdown text={item.text} />
+                <div key={index} className="text-chat text-ink-soft">
+                  <AssistantMarkdown content={item.text} streaming />
                 </div>
               );
             case "thought":
@@ -775,37 +754,8 @@ function Chat({
                   <div>{item.text}</div>
                 </details>
               );
-            case "tool": {
-              const shown = describe(item.title, item.toolKind, 0);
-              // The collapsed row is plain language; the expansion is the raw
-              // material (command, output), untranslated on purpose. The raw
-              // title only earns a line when the row paraphrased it away.
-              const raw = item.input ?? (shown === item.title ? undefined : item.title);
-              if (!raw && !item.output) {
-                return (
-                  <div key={index} className={`chat-tool ${item.status}`}>
-                    <span className="chat-tool-title">{shown}</span>
-                    <span className="chat-tool-status">
-                      {TOOL_STATUS_LABEL[item.status] ?? item.status}
-                    </span>
-                  </div>
-                );
-              }
-              return (
-                <details key={index} className={`chat-tool expandable ${item.status}`}>
-                  <summary>
-                    <span className="chat-tool-title">{shown}</span>
-                    <span className="chat-tool-status">
-                      {TOOL_STATUS_LABEL[item.status] ?? item.status}
-                    </span>
-                  </summary>
-                  <div className="chat-tool-detail">
-                    {raw && <pre className="chat-tool-input">{raw}</pre>}
-                    {item.output && <pre className="chat-tool-output">{item.output}</pre>}
-                  </div>
-                </details>
-              );
-            }
+            case "step":
+              return <ToolStepCard key={item.step.id} step={item.step} />;
             case "plan":
               return (
                 <ul key={index} className="chat-plan">
@@ -925,7 +875,7 @@ function Chat({
             disabled={starting}
             onClick={attach}
           >
-            <IconPaperclip />
+            <Icon name="plus" className="size-3.5" />
           </button>
           {config.length > 0 && (
             <div className="chat-config">

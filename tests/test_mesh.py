@@ -1,7 +1,7 @@
 """A mesh becomes a part's solid only where that is honest.
 
 build123d's `import_stl` returns a `Face`, and subtracting from one segfaults instead
-of raising. A part builds inside the `nurb dev` process, so the whole watcher dies with
+of raising. A part builds inside the engine's worker process, so the build dies with
 no traceback: the one failure here that leaves no evidence. These tests pin both halves.
 The flat-faced case comes back as a real solid that chamfers, and every other mesh is
 refused in words that name what to run instead. Three of those refusals exist because
@@ -9,8 +9,6 @@ the mesh converts perfectly well and the result is silently wrong: an open surfa
 a volume, an inverted one runs its booleans backwards, a degenerate one encloses
 nothing.
 """
-
-import shlex
 
 import numpy as np
 import pytest
@@ -104,13 +102,12 @@ def test_a_dense_mesh_is_refused_even_when_it_is_closed(tmp_path):
         import_stl(target)
 
 
-def test_a_refusal_names_the_command_that_does_work(tmp_path):
+def test_a_refusal_names_the_work_that_does_land(tmp_path):
     """An error that only says no leaves the agent to guess, and it guesses badly."""
     target = written(tmp_path, fillet(Box(20, 30, 40).edges(), 3), "downloaded.stl")
     with pytest.raises(ValueError) as exc:
         import_stl(target)
-    command = shlex.join(("nurb", "scan", str(target)))
-    assert f"`{command}`" in str(exc.value)
+    assert f"Measure {target.name}" in str(exc.value)
 
 
 def test_the_ceiling_is_far_above_the_geometry_that_survives(tmp_path):
@@ -128,7 +125,7 @@ def test_the_import_is_the_size_the_scan_reported(tmp_path):
     """The two commands read one file, so they cannot disagree about how big it is.
 
     An STL carries no unit and scan apps export metres, so importing raw is a part
-    1,000x too small that builds, checks clean and prints. `nurb scan` already owned
+    1,000x too small that builds, checks clean and prints. The scan already owned
     that guess; reading through it is what keeps the reported size and the imported
     size the same number.
     """
@@ -142,7 +139,7 @@ def test_the_import_is_the_size_the_scan_reported(tmp_path):
 
 
 def test_units_overrides_the_guess_the_way_the_flag_does(tmp_path):
-    """`nurb scan --units` has to have a counterpart, or the escape hatch stops here."""
+    """The scan's unit override has to have a counterpart, or the escape hatch stops here."""
     size = import_stl(written(tmp_path, Box(20, 30, 40)), units="cm").bounding_box().size
     assert (size.X, size.Y, size.Z) == pytest.approx((200.0, 300.0, 400.0))
 
@@ -201,7 +198,7 @@ def test_a_part_can_import_and_then_polish(tmp_path):
 
 
 def test_a_format_that_measures_but_cannot_convert_says_which(tmp_path):
-    """`nurb scan` reads more formats than lib3mf converts, and the gap misleads.
+    """A scan reads more formats than lib3mf converts, and the gap misleads.
 
     Left to the kernel, a PLY fails with "Null TopoDS_Shape object", which this would
     report as degenerate triangles: a true-sounding diagnosis of the wrong problem,
@@ -283,7 +280,7 @@ def test_the_scan_report_and_the_import_agree_about_every_file(tmp_path):
     """One shared conversion path, so the report cannot promise what the import refuses.
 
     The property, not the cases: every reason `import_stl` says no has to be a reason
-    the report already knew, or `nurb scan` sends the agent at a call that fails. This
+    the report already knew, or the scan sends the agent at a call that fails. This
     is the test that catches the next reason someone adds in only one of the two.
     """
     inverted = trimesh.creation.box(extents=(20, 30, 40))

@@ -211,7 +211,7 @@ fn chat_runtime_check(paths: &Paths) -> Result<(), String> {
     // cannot be stamped healthy and surface later as a misleading auth error.
     let mut claude = Command::new(paths.node_bin());
     claude
-        .arg(paths.adapter_script(crate::agents::AgentKind::Claude))
+        .arg(paths.adapter_script(crate::agents::AgentKind::ClaudeAcp))
         .args(["--cli", "--version"]);
     probe_output(claude, paths.data(), NATIVE_CLI_HEALTH_TIMEOUT)
         .map_err(|why| format!("the Claude CLI check failed: {why}"))?;
@@ -801,7 +801,7 @@ case "$*" in
     echo "2.1.257 (Claude Code)"
     ;;
   *"claude-agent-acp --version"*) echo "claude-agent-acp 0.74.0" ;;
-  *"codex-acp --version"*) echo "codex-acp 1.10.0" ;;
+  *"codex-acp --version"*) echo "codex-acp 1.11.0" ;;
     *"gemini --version"*) echo "0.55.1" ;;
   *"/codex --version"*)
     [ ! -f "$0.missing-codex" ] || exit 1

@@ -7,8 +7,8 @@ A Tauri shell around nurb: project rail, agent chat column, and the live viewer 
 Rust toolchain, Node 22+, uv, and Xcode command line tools. Then:
 
 ```
-npm install
-npm run tauri dev
+npm install            # at the repo root: it is an npm workspace, and the lockfile lives there
+npm run tauri dev      # from this directory
 ```
 
 Debug builds run nurb out of this checkout (`uv run --project <repo> nurb dev`) and the ACP adapters through PATH `npx`, so nothing needs provisioning. `cargo test` inside `src-tauri/` needs `scripts/stage.sh` to have run once (the build script wants the uv sidecar); any `tauri dev` or `tauri build` runs it for you.

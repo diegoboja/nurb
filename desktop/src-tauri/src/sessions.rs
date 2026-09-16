@@ -30,7 +30,7 @@ pub struct SessionMeta {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct PartChat {
-    project: PathBuf,
+    project: String,
     part: String,
     session_id: Option<String>,
 }
@@ -57,7 +57,7 @@ impl SessionStore {
 
     /// The part on screen when the session last took a prompt; recorded per
     /// send so reopening the session can restore the viewer.
-    pub fn record(&self, session_id: &str, agent: &str, project: &Path, part: Option<String>) {
+    pub fn record(&self, session_id: &str, agent: &str, project: &str, part: Option<String>) {
         {
             let mut sessions = self.sessions.lock().unwrap();
             let meta = sessions.entry(session_id.to_string()).or_default();
@@ -72,7 +72,7 @@ impl SessionStore {
         }
     }
 
-    pub fn part_of(&self, session_id: &str, project: &Path) -> Option<String> {
+    pub fn part_of(&self, session_id: &str, project: &str) -> Option<String> {
         let part = self
             .sessions
             .lock()
@@ -92,7 +92,22 @@ impl SessionStore {
         }
     }
 
-    pub fn select_part_chat(&self, project: &Path, part: &str, session_id: Option<String>) {
+    /// The session a part's chat should pick up after a relaunch, with the
+    /// agent that ran it, since a session only resumes under its own agent.
+    pub fn saved_chat(&self, project: &str, part: &str) -> Option<(String, String)> {
+        let session_id = self
+            .part_chats
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|chat| chat.project == project && chat.part == part)?
+            .session_id
+            .clone()?;
+        let agent = self.sessions.lock().unwrap().get(&session_id)?.agent.clone();
+        Some((session_id, agent))
+    }
+
+    pub fn select_part_chat(&self, project: &str, part: &str, session_id: Option<String>) {
         let mut part_chats = self.part_chats.lock().unwrap();
         match part_chats
             .iter_mut()
@@ -100,7 +115,7 @@ impl SessionStore {
         {
             Some(chat) => chat.session_id = session_id,
             None => part_chats.push(PartChat {
-                project: project.to_path_buf(),
+                project: project.to_string(),
                 part: part.to_string(),
                 session_id,
             }),
@@ -150,26 +165,26 @@ mod tests {
                 .as_nanos()
         ));
         fs::create_dir_all(&dir).unwrap();
-        let project = PathBuf::from("/tmp/project");
+        let project = "bracket-box";
 
         let store = SessionStore::load(&dir);
-        store.record("s1", "claude", &project, Some("bracket".into()));
+        store.record("s1", "claude", project, Some("bracket".into()));
         // A part-less prompt must not erase the remembered part.
-        store.record("s1", "claude", &project, None);
-        assert_eq!(store.part_of("s1", &project).as_deref(), Some("bracket"));
-        assert_eq!(store.part_of("missing", &project), None);
+        store.record("s1", "claude", project, None);
+        assert_eq!(store.part_of("s1", project).as_deref(), Some("bracket"));
+        assert_eq!(store.part_of("missing", project), None);
 
         // Starting fresh suppresses the old conversation across reloads.
-        store.select_part_chat(&project, "bracket", None);
-        assert_eq!(store.part_of("s1", &project), None);
+        store.select_part_chat(project, "bracket", None);
+        assert_eq!(store.part_of("s1", project), None);
 
         let reloaded = SessionStore::load(&dir);
-        assert_eq!(reloaded.part_of("s1", &project), None);
+        assert_eq!(reloaded.part_of("s1", project), None);
 
         // The next real session becomes the durable conversation for the part.
-        reloaded.record("s2", "codex", &project, Some("bracket".into()));
-        assert_eq!(reloaded.part_of("s2", &project).as_deref(), Some("bracket"));
-        assert_eq!(reloaded.part_of("s1", &project), None);
+        reloaded.record("s2", "codex", project, Some("bracket".into()));
+        assert_eq!(reloaded.part_of("s2", project).as_deref(), Some("bracket"));
+        assert_eq!(reloaded.part_of("s1", project), None);
         fs::remove_dir_all(dir).unwrap();
     }
 }

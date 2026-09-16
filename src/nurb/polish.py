@@ -17,7 +17,7 @@ import functools
 
 from build123d import chamfer as _chamfer
 
-# What OCCT says when a chamfer will not land. The same strings `nurb verify`
+# What OCCT says when a chamfer will not land. The same strings the verification
 # matches on, because both are asking the same question: did the kernel refuse, or did
 # the part refuse in its own words.
 KERNEL = ("Failed creating a chamfer", "BRep_API")
@@ -31,7 +31,7 @@ def _advice(count, size, word):
     for room, not for length. Shrinking it is the one response that makes a part quietly
     worse, because a 0.4mm chamfer lands and then reads as a defect on the print.
 
-    So the rule goes here rather than only in `nurb rules`. This is the most common way
+    So the rule goes here rather than only in the design rules. This is the most common way
     a part stops building, and an error is the one place a reader is guaranteed to be
     looking.
     """
@@ -61,7 +61,7 @@ def _advice(count, size, word):
             "  a vertex with four faces and only three edges between them, and OCCT has no",
             "  cap for that corner. Chamfer in two passes and reselect from the result.",
         ]
-    lines += ["", "  `nurb rules` has both cases in full."]
+    lines += ["", "  The design rules have both cases in full."]
     return "\n".join(lines)
 
 
@@ -83,7 +83,7 @@ def _guarded(fn, word, objects, size, *args, **kwargs):
     except Exception as exc:
         if not any(k in str(exc) for k in KERNEL):
             raise
-        # Same type and same opening line, so `nurb verify`'s kernel matching and any
+        # Same type and same opening line, so the kernel matching and any
         # caller catching ValueError still work. `from None` because the original adds
         # nothing a reader wants: it is the same sentence again under a C++ frame.
         raise type(exc)(f"{exc}\n{_advice(_count(objects), size, word)}") from None

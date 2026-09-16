@@ -1224,7 +1224,7 @@ def printer_line(root, name=None):
     """One line an agent sees before designing: the machine and the bed.
 
     Bed millimetres come from `printer()`, the same Context the viewer plate uses.
-    Broken TOML must not abort `nurb rules`: return the unnamed stock default.
+    Broken TOML must not abort the rules report: return the unnamed stock default.
     """
     try:
         ctx = printer(root, name)

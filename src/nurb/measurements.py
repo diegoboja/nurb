@@ -70,7 +70,7 @@ def provisional(start=None):
     looks exactly like one somebody measured. Six months later nothing distinguishes
     them and the part is wrong for a reason no one can find.
 
-    So a guess is allowed to be written down and required to say so, and `nurb check`
+    So a guess is allowed to be written down and required to say so, and the checks
     reports the ones that still are. `how` stays mandatory either way: a provisional
     value still has to say where it came from, because "eyeballed against a broom"
     tells the next person how much to trust it.
@@ -90,7 +90,7 @@ def measured(name, start=None):
     geometry that looks right and is wrong.
 
     A value marked `provisional = true` is returned like any other. It is a real number
-    that builds a real part; what it is not is measured, and `nurb check` says so until
+    that builds a real part; what it is not is measured, and the checks say so until
     somebody picks up a caliper.
     """
     start = pathlib.Path(start).resolve() if start else _caller_dir(2)
@@ -101,7 +101,7 @@ def measured(name, start=None):
             f"Measure {name!r}, then record it:\n\n"
             f'  [{name}]\n  value = 0\n  unit = "mm"\n  how = "how you measured it"\n\n'
             f"If there is nobody to ask right now, add `provisional = true` and put "
-            f"your best guess in. `nurb check` will keep reminding you."
+            f"your best guess in. The checks will keep reminding you."
         )
     book = _read(path)
     if name not in book:

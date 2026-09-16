@@ -6,15 +6,16 @@ Draft 2026-09-13. This file is the coordination point between `~/development/nur
 
 | Artifact | Registry | Contains | Consumed by |
 |---|---|---|---|
-| `nurb` | PyPI | engine (build123d kernel, checks, doctrine, `measured()`), `nurb.server` (SQLite, viewer host, local MCP server, relay client), `nurb/tools.json` | nurb.app's Modal image (engine only, for public rebuilds), desktop app (`nurb serve`), Claude Code users (`nurb mcp`) |
-| `@nurb/ui` | npm | design tokens CSS, `Icon`, `ViewerIsland`, `ParamsPanel`, `ExportMenu`, chat cards (`BuildCard`, `SpecCard`, `MeasurementCard`, markdown policy), transport-agnostic message types | desktop app, nurb.app's Inertia pages, the MCP App bundle |
-| `skills/nurb` | this repo | "add the nurb MCP server, call `read_guide` first" | Claude Code, Codex, Cursor users without the desktop app |
+| `nurb` | this public repo at a commit (`pip install "nurb @ git+https://github.com/Shpigford/nurb@<sha>"`); no PyPI release, no console script (decided 2026-09-16) | engine (build123d kernel, checks, doctrine, `measured()`, `nurb.raster`), `nurb.server` (SQLite, viewer host, local MCP server, relay client), `nurb/tools.json` | nurb.app's Modal image (engine only, for public rebuilds, pinned by sha); the desktop app, which bundles the wheel and spawns `python -m nurb.serve` |
+| `@nurb/ui` | this repo only (npm workspace `packages/ui`, never published; ladder 4 dropped 2026-09-15) | design tokens CSS, `Icon`, `ViewerIsland`, `ParamsPanel`, `ExportMenu`, chat cards (`BuildCard`, `SpecCard`, `MeasurementCard`, markdown policy), transport-agnostic message types | desktop app, `packages/workbench`. nurb.app keeps its own frontend |
 
-Versions move in lockstep with the repo's single release version (engine + desktop + package). nurb.app pins both artifacts exactly.
+Versions move in lockstep with the repo's single release version (engine + desktop + package). nurb.app pins a commit sha of this repo and bumps it by hand.
+
+The product has three doors and one server (decided 2026-09-16): the desktop app (its own chat: the Claude driver, Codex and Gemini over ACP), the app's local MCP endpoint for Claude Code, the Codex CLI or Cursor on the same machine (the app's Settings shows the connect command with the URL and token), and the nurb.app relay for claude.ai and ChatGPT. There is no `nurb` command line and no skill file; the server's MCP `instructions` carry the "call `read_guide` first" rule to every client.
 
 ## 2. `tools.json` — the tool contract
 
-One file, shipped in the wheel, implemented by the local server only. nurb.app never serves tools; its `/mcp` endpoint relays to the user's running desktop app (§4). It holds every tool's `name`, `title`, `description`, `inputSchema` (full JSON Schema; the Anthropic-stripped variant is derived, never hand-maintained), `annotations` (`readOnlyHint` / `destructiveHint`), and the result shape in prose. A contract test here diffs the served `tools/list` against this file.
+One file, shipped in the wheel, implemented by the local server only. nurb.app never serves tools; its `/mcp` endpoint relays to the user's running desktop app (§4). The server's `initialize` result carries `instructions` (read the guide first, the workbench URL habit) so no client needs a skill file. It holds every tool's `name`, `title`, `description`, `inputSchema` (full JSON Schema; the Anthropic-stripped variant is derived, never hand-maintained), `annotations` (`readOnlyHint` / `destructiveHint`), and the result shape in prose. A contract test here diffs the served `tools/list` against this file.
 
 | Tool | Kind | Result |
 |---|---|---|
@@ -25,7 +26,7 @@ One file, shipped in the wheel, implemented by the local server only. nurb.app n
 | `pin_spec` / `amend_spec` | write | ok or validation errors; supersedes the prior spec |
 | `read_measurements` | read | measurements + which parts read each |
 | `record_measurement` | write | measurement, previous value, stale parts |
-| `write_part_source` / `edit_part_source` | write, builds on save | findings, stats, inspect lines, ONE composite 2×2 render (PNG, under 150,000 base64 chars) + a resource link to the full-size render |
+| `write_part_source` / `edit_part_source` | write, builds on save | findings, stats, inspect lines, ONE composite 2×2 render (PNG, under 80,000 base64 chars) + a resource link to the full-size render |
 | `run_build` | write | same as above without a source change |
 | `read_findings` | read | paged findings for the last build |
 | `look` | read | the composite render + resource link |
@@ -37,7 +38,9 @@ Every write tool takes an optional `note` (plain words, becomes the assistant's 
 
 ## 3. `@nurb/ui` surface
 
-Exports (initial): `tokens.css`, `Icon`, `ViewerIsland`, `ParamsPanel`, `ExportMenu`, `BuildCard`, `SpecCard`, `MeasurementCard`, `AssistantMarkdown`, `ToolStepCard`, and the types `Message`, `BuildEvent`, `Spec`, `Finding`, `Params`. Components take data and callbacks; no ActionCable, ACP, Inertia or Tauri imports inside the package. Peer deps: react 19, three 0.185.
+Internal since 2026-09-15: the package is consumed inside this repo only (desktop app, workbench) and is not published to npm. nurb.app keeps its own frontend; a viewer change it wants is copied by hand. The surface below still binds the two in-repo consumers.
+
+Exports (initial): `tokens.css`, `Icon`, `ViewerIsland`, `ParamsPanel`, `ExportMenu`, `BuildCard`, `SpecCard`, `MeasurementCard`, `AssistantMarkdown`, `ToolStepCard`, `ToolStepGroup`, and the types `Message`, `BuildEvent`, `Spec`, `Finding`, `Params`. Components take data and callbacks; no ActionCable, ACP, Inertia or Tauri imports inside the package. Peer deps: react 19, three 0.185. Components are styled with Tailwind 4 utilities and `tokens.css` is a Tailwind source file (`@theme static`, the `@utility` set); a consumer runs Tailwind 4 and adds `@source "../node_modules/@nurb/ui/dist"`. Satoshi is named in the tokens but never shipped (Fontshare license); the consumer supplies it. Instrument Sans and JetBrains Mono ship under the OFL.
 
 ## 4. nurb.app public HTTP API (client lives in this repo)
 
@@ -49,18 +52,18 @@ Exports (initial): `tokens.css`, `Icon`, `ViewerIsland`, `ParamsPanel`, `ExportM
 
 ## 5. Handoff ladder
 
-nurb.app runs no tools and no model. It ships identity, sync, public pages and a relay; this repo ships the wheel, the UI package, the desktop client and the relay client.
+nurb.app runs no tools and no model. It ships identity, sync, public pages and a relay; this repo ships the wheel, the desktop client and the relay client.
 
 | # | Repo | Ships | Awaits | Status |
 |---|---|---|---|---|
-| 1 | nurb-app | OAuth server + `nurb-desktop` public client (loopback, PKCE) — nurb-app Phase 24 | — | planned |
-| 2 | nurb-app | Sync API: publish, back up, pull, presigned uploads — nurb-app Phase 25 | 1 | planned |
-| 3 | nurb | `nurb 1.0.0a1` on PyPI: engine + `nurb.server` (SQLite, `nurb mcp`, `tools.json`) | — | planned |
-| 4 | nurb | `@nurb/ui 1.0.0-alpha.1` on npm, extracted from nurb-app's `web/app/frontend` (one-time reverse flow; read that worktree) | — | planned |
-| 5 | nurb | desktop rebuilt on `@nurb/ui`; `nurb login`, Publish, Back up, Pull, `nurb://open` handler | 1, 2, 3, 4 | planned |
-| 6 | nurb-app | Relay door `/mcp` + connector OAuth + `DesktopChannel` envelope (`docs/ops/relay.md`) — nurb-app Phase 28 | 1 | planned |
+| 1 | nurb-app | OAuth server + `nurb-desktop` public client (loopback, PKCE) — nurb-app Phase 24 | — | shipped 2026-09-14 (nurb-app #47) |
+| 2 | nurb-app | Sync API: publish, back up, pull, presigned uploads, `GET /p/<slug>.json` — nurb-app Phase 25 | 1 | shipped 2026-09-14 (nurb-app #48) |
+| 3 | nurb | the v2 engine importable from a pushed commit of this repo: `src/nurb` with `builder`, `checks`, `raster`, `printers.toml`, `tools.json` (redefined 2026-09-15; there is no PyPI release, nurb.app installs from the pinned commit) | — | shipped: `v2` merged to main as `1.0.0a1` (2026-09-16), commit `<sha>`; nurb.app pins that commit |
+| 4 | nurb | ~~`@nurb/ui 1.0.0-alpha.1` on npm~~ | — | dropped 2026-09-15: the package stays a workspace dependency of the desktop app and the workbench; nurb.app keeps its own frontend. Phase 14 removes the `npm` job from `publish.yml` |
+| 5 | nurb | desktop rebuilt on `@nurb/ui`; Sign in, Publish, Back up, Pull, `nurb://open` handler | 1, 2, 3 | desktop half landed on main with 1.0.0a1 (Phase 14, 2026-09-16); bridge half is Phase 15 |
+| 6 | nurb-app | Relay door `/mcp` + connector OAuth + `DesktopChannel` envelope (`docs/ops/relay.md`) — nurb-app Phase 28 | 1 | shipped 2026-09-14 (nurb-app #51; the reply arrives as one SSE event after keep-alive comments, `taken` is followed by `reject_subscription`, `bin/fake-desktop` there is the reference client) |
 | 7 | nurb | Relay client in the desktop app: holds the `DesktopChannel` connection, answers forwarded MCP requests from the local server | 3, 6 | planned |
-| 8 | nurb-app | engine overlay on the wheel, `@nurb/ui` imported, parity test — nurb-app Phase 30 | 3, 4 | planned |
-| — | nurb-app | Public pages `/p/<slug>` + `nurb://open` contract — nurb-app Phase 22 | — | shipped 2026-09-13 |
+| 8 | nurb-app | engine overlay pinned to a commit of this repo, parity test — nurb-app Phase 30 | 3 | unblocked by 3 |
+| — | nurb-app | Public pages `/p/<slug>` + `nurb://open` contract — nurb-app Phase 22 | — | shipped 2026-09-13; sliders, indexing and the directory followed (Phases 26, 27, 29, merged by 2026-09-14) |
 
 A phase on the consuming side checks the registry or the contract before starting and stops with "blocked on ladder N" if the artifact is missing; it never stubs or vendors it. Update the status column from each repo's PROGRESS.md as handoffs ship. A phase that changes §2–§4 bumps this file first.

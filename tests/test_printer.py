@@ -292,7 +292,7 @@ def test_the_k2_plus_profile_matches_the_vendor_and_slicer():
     profile to name and no way to add one: profiles ship inside the package, and
     printer.toml can name a machine but not define one, because a `slicer` key there
     is refused as an unknown check setting. Hand-adding the entry worked until the
-    next `nurb update` rewrote the file and took it out again."""
+    next upgrade rewrote the file and took it out again."""
     have = profiles()
     assert have["creality_k2_plus"] == {
         "bed": [350.0, 350.0, 350.0],

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nurb · describe the part, print the part</title>
-<meta name="description" content="Describe the part in plain words. Your AI models it live in your browser, nurb checks it against print physics, and you download a file your printer understands. No CAD software.">
+<meta name="description" content="Describe the part in plain words. Your AI models it live in the app, every version is measured against print physics, and you get a file your printer understands. No CAD software.">
 <meta property="og:title" content="nurb · describe the part, print the part">
 <meta property="og:description" content="You talk to your AI. It designs the 3D-printable part while you watch. Drag sliders, download, print. No CAD software.">
 <meta property="og:url" content="https://nurb.dev">
@@ -91,13 +91,6 @@
   #hero p.sub b { color: var(--text); font-weight: 600; }
   .cta { margin-top: 38px; display: flex; flex-direction: column; gap: 14px;
          align-items: center; }
-  .cmd { display: inline-flex; align-items: center; gap: 12px;
-         background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
-         padding: 11px 16px; font-size: 14px; }
-  .cmd .d { color: var(--dimmer); user-select: none; }
-  .cmd button { background: none; border: none; color: var(--dim); cursor: pointer;
-                font: inherit; font-size: 12px; padding: 2px 4px; border-radius: 5px; }
-  .cmd button:hover { color: var(--accent); }
   .cta .alt { color: var(--dim); font-size: 13px; }
   .dl { display: inline-flex; align-items: center; gap: 10px;
         background: var(--accent); color: #12271c; font-weight: 700; font-size: 15px;
@@ -187,7 +180,6 @@
   #start li .body { min-width: 0; flex: 1; }
   #start li p { color: var(--dim); font: 14px/1.55 var(--sans); margin-top: 8px; }
   #start li p b { color: var(--text); font-weight: 600; }
-  #start .cmd { margin-top: 10px; max-width: 100%; overflow-x: auto; }
   #start .dl { font-size: 14px; padding: 10px 20px; margin: 4px 0 6px; }
   #start .say { color: var(--text); font-size: 14px; }
   #start .say::before { content: "> "; color: var(--accent); }
@@ -267,8 +259,7 @@
   <div class="cta">
     <a class="dl" href="https://github.com/Shpigford/nurb/releases/latest/download/nurb.dmg"><svg><use href="#i-download"/></svg>Download for Apple silicon</a>
     <span class="alt">free &middot; open source &middot; runs on your computer &middot; <a href="https://github.com/Shpigford/nurb/releases/latest/download/nurb-intel.dmg">Download for Intel Macs</a></span>
-    <span class="or">or in the terminal</span>
-    <span class="cmd"><span class="d">$</span><span>curl -fsSL https://nurb.dev/install.sh | sh</span><button data-copy="curl -fsSL https://nurb.dev/install.sh | sh" title="copy">copy</button></span>
+    <span class="or">works offline &middot; no account</span>
   </div>
 </section>
 
@@ -416,21 +407,20 @@
   <div class="reveal">
     <div class="sec-label"><b>// 07</b> &nbsp;get started</div>
     <h2>One download and a sentence.</h2>
-    <p class="lede">The Mac app is the whole thing in one window. The command line works with Claude Code, Cursor, Codex, Copilot, and friends.</p>
+    <p class="lede">The Mac app is the whole thing in one window, and it works with no internet. Already have an AI you like? Connect it and keep it.</p>
   </div>
   <ol class="reveal">
     <li>
       <div class="body">
         <a class="dl" href="https://github.com/Shpigford/nurb/releases/latest/download/nurb.dmg"><svg><use href="#i-download"/></svg>Download for Apple silicon</a>
         <p>Your projects, your AI, and the live viewer side by side. It sets everything up the first time you open it and updates itself. <a href="https://github.com/Shpigford/nurb/releases/latest/download/nurb-intel.dmg">Download for Intel Macs.</a></p>
-        <p>Rather work in the terminal? One paste installs nurb and teaches your AI how printable parts are designed:</p>
-        <span class="cmd"><span class="d">$</span>curl -fsSL https://nurb.dev/install.sh | sh<button data-copy="curl -fsSL https://nurb.dev/install.sh | sh" title="copy">copy</button></span>
+        <p>Already use Claude Code, Codex, or Cursor? Settings &rsaquo; Connect has one line to paste into each, and it designs parts in the same window. Got a nurb project folder already? Import brings it in.</p>
       </div>
     </li>
     <li>
       <div class="body">
         <span class="say">Make an adapter that connects my shop vac hose to the dust port on my table saw</span>
-        <p>Your AI models it, checks it, and sends you a link to watch. Looks right? <b>Print.</b></p>
+        <p>Your AI models it, checks it, and the part appears in the viewer while you read the reply. Looks right? <b>Print.</b></p>
       </div>
     </li>
   </ol>
@@ -451,14 +441,6 @@
 
 <script>
 // ---- page furniture ----
-for (const b of document.querySelectorAll('[data-copy]')) {
-  b.onclick = async () => {
-    try { await navigator.clipboard.writeText(b.dataset.copy); } catch {}
-    b.textContent = 'copied';
-    setTimeout(() => { b.textContent = 'copy'; }, 1200);
-  };
-}
-
 const io = new IntersectionObserver(es => {
   for (const e of es) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
 }, { threshold: 0.12 });

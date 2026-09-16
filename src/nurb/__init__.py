@@ -56,10 +56,10 @@ from .registry import part, reject  # noqa: E402  -- must win over any build123d
 # radius really is the fix there, so the chamfer rule would be wrong half the time.
 # `import_stl` shadows build123d's for a blunter reason: build123d's returns a `Face`,
 # a sheet of triangles with no inside, and subtracting from one segfaults instead of
-# raising. A part builds inside the `nurb dev` process, so the whole watcher dies
-# without printing anything. It is also the first name a model tries when a downloaded
+# raising. A part builds inside the engine worker, so the build dies without printing
+# anything. It is also the first name a model tries when a downloaded
 # file lands in a project. This one returns a real solid for the flat-faced meshes that
-# survive the trip, and refuses the rest pointing at `nurb scan`.
+# survive the trip, and refuses the rest pointing at measurement.
 __all__ = [
     *getattr(_b3d, "__all__", [n for n in dir(_b3d) if not n.startswith("_")]),
     "part",

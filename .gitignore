@@ -19,3 +19,12 @@ wheels/
 
 # Conductor's local, per-checkout settings (not meant to be shared/committed)
 .conductor/
+
+# npm workspace root; desktop/ and packages/* hoist here
+node_modules/
+
+# Gallery build output for @nurb/ui
+gallery-dist/
+
+# The workbench page nurb serve shows at /, built by Vite from packages/workbench
+src/nurb/workbench/

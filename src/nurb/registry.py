@@ -75,7 +75,7 @@ def reject(message, param=None):
     For guards on parameter values: a holder whose hole is narrower than the tool
     it holds should refuse, not build. Say what is wrong and what value fixes it,
     and pass `param` naming the offending parameter so the viewer can mark its
-    slider. A refusal is shown as a limit of the design, never as a crash.
+    slider. A refusal is shown as a limit of the design, never as a failure.
     """
     raise Rejected(message, param)
 

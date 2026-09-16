@@ -1,4 +1,4 @@
-//! Which nurb and which adapter runtime the app actually runs: the dev
+//! Which engine and which adapter runtime the app actually runs: the dev
 //! checkout (debug builds, through PATH uv and npx, as phases 1-5 did) or the
 //! self-provisioned environment under app data that provision.rs installs.
 //! Release builds only know the provisioned form; the checkout path is never
@@ -40,15 +40,22 @@ impl Launcher {
         }
     }
 
-    /// A command that runs the nurb CLI; callers append `dev`, `new`, etc.
-    pub fn nurb(&self) -> Command {
+    /// A command that runs the serve; callers append `--port` and friends.
+    pub fn serve(&self) -> Command {
         match self {
             Self::Checkout { repo } => {
                 let mut command = Command::new("uv");
-                command.args(["run", "--project"]).arg(repo).arg("nurb");
+                command
+                    .args(["run", "--project"])
+                    .arg(repo)
+                    .args(["python", "-m", "nurb.serve"]);
                 command
             }
-            Self::Provisioned { paths } => Command::new(paths.venv().join("bin/nurb")),
+            Self::Provisioned { paths } => {
+                let mut command = Command::new(paths.venv_python());
+                command.args(["-m", "nurb.serve"]);
+                command
+            }
         }
     }
 
@@ -88,10 +95,10 @@ impl Launcher {
         }
     }
 
-    /// PATH for adapter processes. Agents run `nurb build` and friends while
-    /// they work, and on an end-user machine the only nurb (and node) anywhere
-    /// is the provisioned one, so their shells must see it. Checkout mode
-    /// inherits the dev machine's PATH untouched.
+    /// PATH for adapter processes. On an end-user machine the only Python
+    /// environment (and the only node) anywhere is the provisioned one, so
+    /// their shells must see it. Checkout mode inherits the dev machine's
+    /// PATH untouched.
     pub fn adapter_path(&self) -> Option<String> {
         match self {
             Self::Checkout { .. } => None,

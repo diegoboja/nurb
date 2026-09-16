@@ -76,7 +76,7 @@ def test_import_stl_is_the_shadow_that_deliberately_differs(box_stl):
     assert nurb.import_stl(box_stl).volume > 0.0
     signature = f"import_stl{inspect.signature(nurb.import_stl)}"
     summary = dict(api.entries()[1])[signature]
-    assert "solid" in summary and "nurb scan" in summary
+    assert "solid" in summary and "measure" in summary
 
 
 def test_every_entry_carries_a_signature_and_a_sentence():
@@ -97,10 +97,10 @@ def test_a_docstring_that_opens_with_its_own_name_is_skipped():
     assert "newly added edges" in summary
 
 
-def test_report_points_at_the_two_commands_that_answer_the_next_question():
+def test_report_points_at_the_two_things_that_answer_the_next_question():
     text = "\n".join(api.report())
-    assert "nurb rules" in text  # when to reach for these
-    assert "nurb inspect" in text  # what the built part actually looks like
+    assert "design rules" in text  # when to reach for these
+    assert "inspect" in text  # what the built part actually looks like
 
 
 @pytest.mark.parametrize("name", ["polish", "concave_edges", "measured"])

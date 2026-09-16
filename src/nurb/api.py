@@ -117,7 +117,7 @@ def report():
         lines += _section("  From build123d, because the doctrine mandates it:", borrowed)
     lines += [
         "",
-        "  `nurb rules` is when to reach for these. `nurb inspect <part>` measures a",
-        "  built one in the same units the rules report.",
+        "  The design rules above are when to reach for these, and a build's inspect",
+        "  measures the built part in the same units the rules report.",
     ]
     return lines

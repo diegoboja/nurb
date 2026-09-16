@@ -2,10 +2,9 @@
 
 `import_stl` is the name a model reaches for the moment a downloaded file lands in a
 project, and build123d's returns a `Face`: a triangulated sheet with no inside.
-Subtracting from one does not raise, it segfaults, and a part builds inside the `nurb
-dev` process, so that takes the watcher down with no traceback. An error that kills the
-loop and prints nothing is the worst one this codebase can produce, which is what makes
-this import worth owning.
+Subtracting from one does not raise, it segfaults, so the build process dies with no
+traceback at all. An error that kills the loop and prints nothing is the worst one this
+codebase can produce, which is what makes this import worth owning.
 
 What it can honestly do is narrow, because a mesh carries no design. A wall thickness
 in an STL is a distance between two sheets of triangles, not a number anyone can
@@ -17,13 +16,12 @@ prism with no circular edge left to select, so the selector that would grab its 
 finds nothing, and a 3mm fillet becomes nine thousand facets.
 
 So the flat-faced case returns a solid and everything else is refused by name, pointing
-at `nurb scan`. Measuring the file and rebuilding it in code is the only path that ends
+at measurement. Measuring the file and rebuilding it in code is the only path that ends
 with parameters, and a part with parameters is the whole point.
 """
 
 import math
 import pathlib
-import shlex
 import shutil
 import tempfile
 
@@ -38,7 +36,7 @@ import numpy as np
 # case that would otherwise look like a hang.
 TRIANGLE_CEILING = 2_000
 
-# What converts to a solid, which is narrower than what `nurb scan` measures. OBJ, GLB
+# What converts to a solid, which is narrower than what a scan measures. OBJ, GLB
 # and PLY are measurable and not convertible, and saying so beats letting the kernel
 # fail with "Null TopoDS_Shape object", which reads as a complaint about the triangles.
 CONVERTIBLE = (".stl",)
@@ -48,10 +46,10 @@ def refusal(suffix, mesh):
     """Why this mesh cannot be a part's solid, or None when it can.
 
     Takes the trimesh both callers already hold, rather than a couple of facts off it,
-    so that adding a reason here cannot leave `nurb scan` promising an import that
+    so that adding a reason here cannot leave the scan report promising an import that
     `import_stl` then refuses. It reads on from "<file> is", and carries neither the
     filename nor the next step, because the two callers owe the reader different ones:
-    the exception sends them to `nurb scan`, and `nurb scan` is what they ran.
+    the exception sends them to measuring the file, and the scan report is where that lands.
     """
     triangles = len(mesh.faces)
     if suffix.lower() not in CONVERTIBLE:
@@ -96,8 +94,7 @@ def _refuse(path, problem):
     """The refusal, returned rather than raised so the `raise` stays at the call site."""
     path = pathlib.Path(path)
     return ValueError(
-        f"{path.name} is {problem}. `{shlex.join(('nurb', 'scan', str(path)))}` "
-        f"measures it instead, and a part "
+        f"{path.name} is {problem}. Measure {path.name} instead, and a part "
         f"rebuilt from those measurements is the one with parameters"
     )
 
@@ -105,7 +102,7 @@ def _refuse(path, problem):
 def conversion(path):
     """The cleaned, valid kernel solid for `path`, or the reason none came out.
 
-    This is shared with `nurb scan`: passing the inexpensive mesh checks is not proof
+    This is shared with the scan report: passing the inexpensive mesh checks is not proof
     that OCCT can build a body, so the report must run the same final conversion before
     it promises one. Lib3MF dispatches on a case-sensitive extension even though file
     formats are not case-sensitive, so uppercase STL files get a temporary normalized
@@ -144,21 +141,21 @@ def conversion(path):
 
 
 def import_stl(file_name, units=None):
-    """A closed, flat-faced STL as a real solid, or a refusal that names `nurb scan`.
+    """A closed, flat-faced STL as a real solid, or a refusal that says to measure it.
 
     build123d's `import_stl` returns a `Face` with no volume, and subtracting from that
-    segfaults rather than raising. `units` is `nurb scan --units`, and means the same
+    segfaults rather than raising. `units` is the scan's unit override, and means the same
     thing: the file's own unit, when the size guess would get it wrong.
     """
     from . import scan
 
     path = pathlib.Path(file_name)
-    # Read through `scan`, not trimesh directly, so a file measured by `nurb scan` and
+    # Read through `scan`, not trimesh directly, so a file that was measured and
     # then imported comes back at the size that was reported. An STL carries no unit,
     # scan apps export metres, and importing those raw is a part 1,000x too small that
     # builds and checks clean. It also buys the point-cloud message for free.
     mesh, unit, _ = scan.load(path, units=units)
-    # The inexpensive reasons live in `refusal`; `nurb scan` shares both that gate and
+    # The inexpensive reasons live in `refusal`; the scan report shares both that gate and
     # `conversion`, so it cannot promise a body that this call then refuses. OCCT would
     # refuse almost none of the mesh-level problems: it builds a solid from an open
     # surface and reports a volume for it, it takes a quarter-million triangles given

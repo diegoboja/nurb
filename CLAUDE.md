@@ -22,6 +22,16 @@ Token rules:
 - Read only the line ranges you need from large files.
 - Don't echo file contents or long diffs back to the user; report conclusions.
 
+## Hard time limits
+
+- Default wall-clock budget: 15 minutes.
+- Every subagent gets a 5-minute deadline.
+- Poll process state, not agent status. If no command is running, interrupt immediately.
+- Maximum one full-suite run and one adversarial pass.
+- After a green full suite, verify later patches with focused tests only.
+- At 10 minutes, report status. At 15 minutes, stop and return results or blockers.
+- Never silently exceed the budget without explicit user approval.
+
 Agentic CAD for 3D printing. A part is a Python function; a long-lived process
 rebuilds it on save and pushes geometry to a browser without moving the camera.
 
@@ -44,9 +54,7 @@ def dispenser(width=80.0, height=120.0, wall=2.0, draft=False):
     return polish(body, keep, 1.0)
 ```
 
-**Keyword defaults are the parameters.** That single declaration feeds the agent, the
-CLI, the viewer's sliders, the tests, and any future configurator. Never add a
-parallel `PARAMS` dict; the two would drift.
+**Keyword defaults are the parameters.** That single declaration feeds the agent, the viewer's sliders, the tests, and any future configurator. Never add a parallel `PARAMS` dict; the two would drift.
 
 `draft` is optional and injected by the runtime, never passed by callers. When true,
 skip the polish pass. Worth 20% on a real part, not the 18x a cube suggested: chamfers
@@ -59,37 +67,19 @@ Write a continuous dimension as a float (`chamfer_size=1.0`) and a count as an i
 (`bracket_count=4`): the viewer reads the type of the default to decide whether that
 parameter's slider steps by one.
 
-## Commands
+## Running it
 
 ```
-nurb new <name>      create parts/<name>.py and its card
-nurb dev             watch, rebuild, serve the viewer on :7373 or the next free port
-nurb build [part]    build once, report size and timing
-nurb check [part]    run the printability rules, --strict for CI
-nurb inspect [part]  faces, normals, concave edges, each finding on its face, --render for stills of them
-nurb scan <file>     measure a mesh in mm, a phone scan or a downloaded model (STL/OBJ/GLB or triangulated PLY), --section for a profile polyline
-nurb compare [part]  deviation from the card's target mesh, both directions, --against for a one-off file
-nurb rules           print the design doctrine
-nurb api             the vocabulary a part file gets, with signatures
-nurb skill           print an agent skill file for any AI harness, --sync rewrites installed copies
-nurb update          upgrade nurb, then re-sync the installed skill to match
-nurb card [part]     regenerate a card's AUTO block
-nurb diff [part]     what moved since the card was written: size, volume, faces, verdict
-nurb slice [part]    print time and filament, via an installed OrcaSlicer or BambuStudio
-nurb stress [part]   static stress under a load: peak MPa, sag, margin to breaking
-nurb verify [part]   the doctrine's verification list, --report bundles it with renders
-nurb render [part]   write build/renders/<part>.png, --section cuts it open, needs the render extra
-nurb export [part]   write 3MF with tuned print settings into build/, --formats for STL, STEP or GLB
-nurb extract         find duplication across sibling parts
-nurb launcher        write viewer.command, a double-clickable `nurb dev`
+uv run python -m nurb.serve   serve the workbench, the API and the MCP endpoint on :7373 or the next free port
+uv run pytest                 run the suite
 ```
 
-`uv run pytest` runs the suite, which includes the parts in `examples/`.
+The suite includes the parts in `examples/`.
 
 A project is any directory containing `parts/`. There is no init step, and there
 never should be.
 
-A release is a version bump merged to main: `uv version X.Y.Z`, plus the matching `version:` line in `src/nurb/skill.md` and `skills/nurb/SKILL.md`, plus the matching `version` in `desktop/src-tauri/tauri.conf.json` (tests enforce all three agree). The publish workflow does the PyPI upload, tag, and GitHub release; `desktop/scripts/release.sh` then builds the desktop app into that same release, so the engine and the app always ship together under one version. The `/release` skill runs the whole ceremony end to end, changelog included.
+A release is a version bump merged to main: `uv version X.Y.Z`, plus the matching semver `version` in `desktop/src-tauri/tauri.conf.json` and the matching `version` in `packages/ui/package.json` (a test enforces all three agree). The publish workflow builds the workbench and the wheel, then tags and creates the GitHub release; `desktop/scripts/release.sh` then builds the desktop app into that same release, so the engine and the app always ship together under one version. The `/release` skill runs the whole ceremony end to end, changelog included.
 
 ## Layout
 
@@ -100,22 +90,27 @@ src/nurb/checks.py        printability rules, convexity, Finding/Context, varian
 src/nurb/compare.py       deviation from a target mesh, the ghost's numbers
 src/nurb/polish.py        the bisecting polish pass, and chamfer with real errors
 src/nurb/orient.py        stand(), the diagonal print stance with its bed facet
-src/nurb/probe.py         what `nurb inspect` measures, in the rules' own units
+src/nurb/probe.py         what the inspect tool measures, in the rules' own units
 src/nurb/api.py           the vocabulary, derived from __all__ so it cannot drift
 src/nurb/printers.toml    shipped printer profiles, named by a project's printer.toml
 src/nurb/card.py          the card's AUTO block
 src/nurb/extract.py       duplication across sibling parts, up to alpha-equivalence
 src/nurb/mesh.py          import_stl(), the flat-faced meshes that can be a solid
 src/nurb/measurements.py  measured(), and the refusal to guess
-src/nurb/edit.py          writes slider values back into a part's keyword defaults
-src/nurb/render.py        headless PNG, the only module that wants a browser
+src/nurb/edit.py          the keyword-default rewrite behind Apply
+src/nurb/render.py        headless PNG through the numpy rasterizer in raster.py
+src/nurb/raster.py        GLB in, flat-shaded PNG out: the four views, the composite, and the PNG encoder
 src/nurb/slicing.py       the handoff to an installed slicer, and the two numbers back
-src/nurb/stress.py        voxel FEA behind `nurb stress` and the viewer's stress button
+src/nurb/stress.py        voxel FEA behind the stress tool and the viewer's stress button
 src/nurb/doctrine.md      the doctrine itself, shipped in the package
-src/nurb/server.py        watcher, rebuild, HTTP + websocket on one port
-src/nurb/viewer.html      three.js viewer, Z-up, camera persistence, sliders, section
-src/nurb/vendor/three/    three.js r169, so the viewer needs no network
-src/nurb/cli.py           command surface
+src/nurb/serve.py         HTTP, websocket and MCP on one port, the one process that owns the database
+src/nurb/mcp_server.py    the tool dispatcher: tools.json is the contract, this is its only implementation
+src/nurb/tools.json       the tool contract an agent sees
+src/nurb/db.py            the SQLite store: projects, parts, revisions, build runs
+src/nurb/materialize.py   rows written back out as the folder the engine can build
+src/nurb/folder.py        import_folder and checkout, the two doors between a folder and the store
+src/nurb/guide.py         doctrine, vocabulary and kernel notes as the one document a model reads
+src/nurb/workbench/       the built workbench page, from packages/workbench
 examples/notch/           the real parts, which are also the calibration set
 tests/test_notch_fit.py   the hanging interface, asserted for every configuration
 tests/                    rules and examples, both cases per rule
@@ -127,15 +122,15 @@ The model leaderboard (tasks, scorer, runner, and every submitted run) lives in 
 
 ### This file is for developing nurb, not for using it
 
-The part-design workflow (start `nurb dev` first thing, end every reply with the viewer URL, model while the user watches) belongs to the shipped skill (`src/nurb/agents.md`, mirrored into `skills/nurb/SKILL.md`) and applies in a user's parts project, never in this repo. Here you are building the tool. When verifying viewer or server changes, run `nurb dev` against `examples/notch` in the background and share the URL for that; `?part=<name>&variant=<name>` deep-links to the exact configuration you want looked at.
+The part-design workflow (open the workbench first thing, end every reply with its URL, model while the user watches) is the agent-facing guidance the MCP server ships: its `instructions` and the `read_guide` tool. It applies in a user's parts project, never in this repo. Here you are building the tool. When verifying workbench or serve changes, run `uv run python -m nurb.serve` in the background, import `examples/notch`, and share the URL for that; `?part=<name>&variant=<name>` deep-links to the exact configuration you want looked at.
 
 ### Every feature gets a surface in the app
 
-The desktop app is the primary entry point, and it is what to optimize for. A capability that exists only as a CLI subcommand does not exist for the person who downloaded the app: they will never type it, never read `--help`, and never learn it is there. "The agent can run it when asked" is not a surface either, because it requires the user to already know the feature exists in order to ask for it.
+The desktop app is the primary entry point, and it is what to optimize for. A capability that exists only as a tool the agent can call, or only as a serve route, does not exist for the person who downloaded the app: they will never see it and never learn it is there. "The agent can run it when asked" is not a surface either, because it requires the user to already know the feature exists in order to ask for it.
 
 So a feature is not done when the command works. It is done when someone looking at their part can see it and use it without being told. Ship the command and the surface in the same change, and if the surface is genuinely wrong for the feature, say why out loud rather than deferring it.
 
-Nearly always that surface belongs in `src/nurb/viewer.html`, not in `desktop/src`. The app embeds the viewer in an iframe, so one control there reaches both the app and `nurb dev` in a browser. React shell work is for what only the shell can do: the window, the rail, projects, chat, updates. Anything about the part itself goes in the viewer.
+Nearly always that surface belongs in `packages/workbench`, not in `desktop/src`. The app embeds the workbench, so one control there reaches both the app and the served page in a browser. React shell work is for what only the shell can do: the window, the rail, projects, chat, updates. Anything about the part itself goes in the workbench.
 
 Two things a surface owes the user that a command does not. It must not dead-end: when a feature needs something the project has not chosen yet, offer the choice in place rather than printing what the user should have configured. And a result that outlived its geometry is worse than no result, so anything cached from a build clears when that part rebuilds.
 
@@ -143,13 +138,13 @@ Two things a surface owes the user that a command does not. It must not dead-end
 
 The recurring failure mode in this repo: a change lands in the Python engine or the viewer, works in a browser, and ships with the desktop app never considered. That is backwards. The desktop app is the primary UI, so every change ends with an explicit desktop pass: what does `desktop/src` need for this, and if the honest answer is nothing, say that in the summary rather than leaving it unexamined.
 
-The shell duplicates viewer state on purpose, and that duplication is where changes go silently missing. Its rail draws its own part and variant rows from `list_parts` polling, not from the viewer's sidebar; selection flows through `nurb:part` postMessages; viewer state the shell must react to travels over `nurb:*` messages (`nurb:saved`, `nurb:shared`, `nurb:variant`). So check each seam: new server fields the rail should reflect need `list_parts` plumbing, new viewer state the rail mirrors needs a message, and anything that lives in the sidebar or footer is invisible in the app, because `?embed` hides both. Labels too: embed mode speaks to hobbyists, so a button that names a `.py` or `.md` file in the browser needs an embed variant that does not.
+The shell renders the part surface in-process from `packages/workbench` (`PartView`, `useProject`, `api.ts`, `live.ts`) and reads projects and parts straight from the serve over `fetch` and the `/ws` change bus; there is no iframe, no `postMessage`, and no polling. Selection is local state in `desktop/src/App.tsx`. So check each seam: a new server field reaches the app only through the workbench's `api.ts` types and whichever of `ProjectsRail.tsx` or `PartView` shows it; anything the rail summarises (part counts, last built) comes from `GET /api/projects`, so a new summary field needs that route; a change to a `packages/workbench` module is a change to the app, so run the desktop checks after it too. The page origin is `tauri://localhost` in the bundle and `http://localhost:1420` under `tauri dev`: the serve's CORS allowlist and its same-origin write guard name both, and a secure context refuses `ws://localhost` (loopback by IP is exempt), so verify transport changes in a `tauri build --debug` bundle, never only in dev. Labels: embed mode no longer exists, and the app speaks to hobbyists, so no user-facing string names a `.py` or `.md` file.
 
-The check is cheap: grep `desktop/src` for the concept you touched, and run `./node_modules/.bin/tsc --noEmit` plus `npm test` in `desktop/` whenever it changed.
+The check is cheap: grep `desktop/src` for the concept you touched, and run `npm run typecheck` plus `npm test` in `desktop/` whenever it or `packages/workbench` changed. Debug builds listen on `127.0.0.1:7399` for `create:`, `open:`, `import:`, `part:`, `param:`, `send:`, `eval:` and plain composer text, so a WKWebView can be driven and probed without touching the keyboard; `eval:` results land on the app's stderr.
 
-### Command names stay boring
+### Tool names stay boring
 
-The CLI's user is a language model, while the app's user is a person; both surfaces are real and neither substitutes for the other. An agent that has never seen this tool can guess `build`, `check`, `export`. It cannot guess a themed alias. Every clever name is an indirection that degrades in a fresh context. The brand can be distinctive; the interface cannot.
+The tools' user is a language model, while the app's user is a person; both surfaces are real and neither substitutes for the other. An agent that has never seen this server can guess `run_build`, `read_findings`, `write_part_source`. It cannot guess a themed alias. Every clever name is an indirection that degrades in a fresh context. The brand can be distinctive; the interface cannot.
 
 ### Never port Fusion scaffolding
 
@@ -181,7 +176,7 @@ fails, so testing them one at a time reports that nothing is wrong. Bisect the s
 
 Notch did not begin as a system; `block_width = 25.16` exists because a real wall got
 measured after parts existed. Guessing what is shared before you know propagates the
-wrong abstraction. The command is `nurb extract`, not `nurb new system`.
+wrong abstraction. The tool is `extract`, not `new system`.
 
 It reports and does not rewrite, because choosing which free names become parameters and
 what the function is called are judgements about what the thing *is*, and noticing is
@@ -193,8 +188,8 @@ each of them would have been the wrong abstraction wearing the right name.
 ### Generated files stay nearly empty
 
 Scaffolders traditionally emit commented placeholder blocks. That is fine for humans
-skimming and actively bad for an agent, where it is context to read past. `nurb new`
-emits a working part and a card with headings only.
+skimming and actively bad for an agent, where it is context to read past. A new part
+is a working part and a card with headings only.
 
 ### Verify before claiming
 
@@ -220,8 +215,8 @@ as though every file will be read by a stranger.
   directory, no personal data in committed files or test fixtures.
 - **Public API is `src/nurb/__init__.py`.** Anything exported there is a promise.
   Everything else is internal and free to change. Keep the surface small.
-- **Dependencies are a cost.** Four right now: build123d, trimesh, watchdog,
-  websockets. Adding a fifth needs a reason that survives being asked out loud.
+- **Dependencies are a cost.** Five right now: build123d, mcp, pillow, trimesh,
+  websockets. Adding a sixth needs a reason that survives being asked out loud.
 - **Watch the transitive license surface.** build123d is Apache-2.0, but it pulls
   OCP, whose wheel bundles OCCT native libraries under LGPL-2.1-with-exception. That
   is fine while we dynamically link and do not redistribute them. It stops being
@@ -231,9 +226,8 @@ as though every file will be read by a stranger.
 - **Errors are the interface.** Most users will meet this tool through a failure.
   Tracebacks get trimmed to the user's own file; messages say what went wrong and
   what to do, never just "invalid input".
-- **The doctrine ships in the package**, exposed via `nurb rules`. One source of
-  truth. `SKILL.md` and `AGENTS.md` are thin shims that point at it, never copies.
-- **The viewer works offline.** Everything it *needs* is local: three.js is vendored in `src/nurb/vendor/three`, because a CAD tool that needs a CDN is broken on a plane, and `nurb render` drives the same page. Anything new the viewer imports gets vendored too, and `pyproject.toml`'s `source-include` has to carry it. Network is allowed for nudges that degrade silently, like the daily PyPI update check, which also stays out of headless renders.
+- **The doctrine ships in the package**, reached by an agent through the `read_guide` tool. One source of truth, assembled at call time so an upgrade cannot leave a stale copy teaching the wrong rules.
+- **The workbench works offline.** Everything it *needs* is local: three.js and the fonts are bundled into `src/nurb/workbench/` by the workbench build, because a CAD tool that needs a CDN is broken on a plane. Anything new the workbench imports is bundled too, and `pyproject.toml`'s `source-include` has to carry the output. Network is allowed for nudges that degrade silently, like the daily update check, which also stays out of headless renders.
 - **Examples are tests.** `examples/` holds real parts that the suite builds, so a
   broken example is a red build rather than a stale README.
 

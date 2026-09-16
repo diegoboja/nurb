@@ -22,7 +22,7 @@ The joint parameter is an ordinary keyword default, so the viewer's existing sli
 already animates it: drag `open_deg` and the door swings in the browser. Nothing in the
 viewer knows assemblies exist.
 
-`nurb check` on an assembly runs the sweep instead of the printability rules: each
+Checking an assembly runs the sweep instead of the printability rules: each
 hinged solid is rotated through its declared range and intersected against everything
 else, and the finding reports the angle where it jams and the coordinates of the
 contact. The printability rules still run where they belong, on the individual parts.
@@ -154,10 +154,17 @@ def _recorder(who):
 # --- the vocabulary an assembly file gets ------------------------------------
 
 
-def _caller_root():
-    """The project of the file that called, found the way the CLI finds it."""
-    from .cli import project_root
+def project_root(start=None):
+    """The nearest directory at or above `start` that holds a parts/ folder."""
+    here = pathlib.Path(start or pathlib.Path.cwd()).resolve()
+    for d in [here, *here.parents]:
+        if (d / "parts").is_dir():
+            return d
+    return here
 
+
+def _caller_root():
+    """The project of the file that called."""
     frame = sys._getframe(2)
     here = frame.f_globals.get("__file__")
     return project_root(pathlib.Path(here).resolve().parent if here else None)
@@ -279,7 +286,7 @@ def assembly(fn):
 
     The function returns its placed solids (a tuple, or one solid); the runtime
     compounds them for display and carries the recorded joints on the compound, which
-    is how `nurb check` knows to sweep instead of running the printability rules.
+    is how the checks know to sweep instead of running the printability rules.
     """
     params, takes_draft = declared(fn)
 

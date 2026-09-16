@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@import "@nurb/ui/tokens.css";
+
+/* The built components' classes live here, through the workspace rather than
+   node_modules, which Tailwind does not scan. */
+@source "../src";
+@source "../../ui/dist";

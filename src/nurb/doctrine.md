@@ -1,6 +1,6 @@
 # nurb design doctrine
 
-Printed via `nurb rules`. This file is the single source; harness files point at it
+Served by the `read_guide` tool. This file is the single source; harness files point at it
 rather than repeating it.
 
 These are standing rules for FDM-printed parts, and several are vetoes rather than
@@ -119,7 +119,7 @@ Parts print the way they are modelled, +z up, and for most parts that is the end
 - **The two remedies for an overhang finding are a corbel and a tilt.** Reach for the corbel first: it is local, it keeps the part on its natural face, and it disappears into the design. Reach for the tilt when the whole part fights the bed. An open box printed upright wants support inside; printed flat it has one huge first layer that warps and three finishes that do not match; stood on a corner at 45 degrees, nothing needs support and every face is printed as perimeters, one finish.
 - **Layer bonds are about half strength**, measured near 50% of in-plane tensile for PLA and worse for ASA. A part loaded around a corner, which is every bracket and every L, has no flat orientation that keeps both legs loading in-plane: one of them always pulls its layers apart. Stood at 45 degrees neither does, and the load path never lies in a single weld plane. A tilt moves the weak plane rather than deleting it, so it is not automatic: a hook printed at an angle fails at the same load with the break somewhere else. It earns its keep on corners, not on straight pulls.
 - **`stand(part, tilt, axis, facet)` is the verb.** It rotates the part about a horizontal axis, seats it, and shaves the down corner flat, because a part standing on an unshaved corner meets the bed along a single extrusion line, and that line peels. The facet is 2mm minimum, measured across the flat. 45 degrees is the usual tilt and is not sacred: a shallow part stands at whatever angle brings everything inside the limit. Run the polish pass before standing, in the functional orientation.
-- **Stand a part on the corner that grounds every region, and prefer the lowest stance that does.** For an L that is the outside of its elbow, legs up in a V. The sign of the roll depends on which way the model faces, so check rather than reason: the same L rolled the other way stands on the end of one leg as a chevron, still grounded, still legal, but 60% taller on the same facet, and height on a facet is what spends the adhesion margin. The stance to refuse is the tent, elbow up, one leg's tip hanging in air, and it is easy to miss by eye because nothing about it looks steep: every face of the floating tip can sit at exactly 45 degrees, silent to the overhang rule. The `floating` rule fails any region whose first layer has nothing to sit on and `stability` judges the height, so `nurb check` on the stood variant settles the corner choice. Past grounded, inside the limit, and low, the tilt is taste: what remains is where the facet scar lands, which is the user's call.
+- **Stand a part on the corner that grounds every region, and prefer the lowest stance that does.** For an L that is the outside of its elbow, legs up in a V. The sign of the roll depends on which way the model faces, so check rather than reason: the same L rolled the other way stands on the end of one leg as a chevron, still grounded, still legal, but 60% taller on the same facet, and height on a facet is what spends the adhesion margin. The stance to refuse is the tent, elbow up, one leg's tip hanging in air, and it is easy to miss by eye because nothing about it looks steep: every face of the floating tip can sit at exactly 45 degrees, silent to the overhang rule. The `floating` rule fails any region whose first layer has nothing to sit on and `stability` judges the height, so building the stood variant settles the corner choice. Past grounded, inside the limit, and low, the tilt is taste: what remains is where the facet scar lands, which is the user's call.
 - **A diagonal print is a variant, and it is offered, never imposed.** The facet is cut from visible geometry, and whether that corner may go is not a printability question: only the user knows whether it shows. The pattern is a bool parameter, `diagonal=False`, that applies `stand()` when true, and a card variant that sets it, so it builds, checks against its own baselines, exports its own STL and shows in the viewer like any variant. Give the variant a `note` saying what the tilt buys and costs in plain words, "prints tilted on a flattened corner: no supports, and stronger across the corner", never in the doctrine's. Build it speculatively and link it, `?part=x&variant=x_diagonal`; the user judges by looking, and two lines delete it if they pass.
 - **Past about twenty times the facet width in height, adhesion is holding a lever, and `stand()` grows fins.** A compact part holds its facet by first-layer adhesion; a tall one needs support fins modelled into the part, never slicer supports, whose loose grip lets warp tension spring the part free mid-print. The recipe is print-farm practice with fixed numbers, so it is generated rather than judged: a thin blade at each side of the part hugging the lean across a small gap, each on a 1mm pad for its own adhesion, joined to the part only by horizontal tines a single layer tall and a bead wide, about 0.5 x 0.5mm, five or so, biased toward the bottom where the young print is least stable. After printing the fins lift off whole and the tine stubs rub off with a fingernail. The tines cost a handful of sub-millimetre faces, declared on the card like any other earned sliver. The stability warning remains the referee for what `stand()` did not build: pass `fins=False` to see it, and a part tilted by hand still gets it.
 
@@ -150,7 +150,7 @@ wall plane is nearly free: no forward mass, almost no material.
 ```
 
 Do not oversize either. A light part sits near the mounting system's minimum height. An
-oversized back on a small hook is wasted material and looks wrong. `nurb check` reports
+oversized back on a small hook is wasted material and looks wrong. The checks report
 this ratio for any part whose card names which way it reaches.
 
 ### Reinforcement, in order of preference
@@ -278,7 +278,7 @@ Specific to OCCT, and measured on real parts rather than reasoned about.
   passes so that the first one gives those two faces a real edge to meet along, then
   reselect from the result. Found on the parts bin, where the front drop and the side
   taper land at the same height by design.
-- **The third way a chamfer dies is the kernel itself dying.** A polish on a body assembled from several unions can take OCCT down with a segmentation fault instead of an error (issue #247, inside `Geom2dAdaptor_Curve::D0`), and no Python code can catch that. nurb reports it as a build error naming the line and keeps the dev server up, with the part marked until its file changes, but the fix is in the part: polish the simple solids before uniting them, or take those edges out of the set. The tell is a `--draft` build that succeeds while the full build dies.
+- **The third way a chamfer dies is the kernel itself dying.** A polish on a body assembled from several unions can take OCCT down with a segmentation fault instead of an error (issue #247, inside `Geom2dAdaptor_Curve::D0`), and no Python code can catch that. The build runs in its own worker process, so the engine survives it and the run comes back saying the engine stopped, but the fix is in the part: polish the simple solids before uniting them, or take those edges out of the set. The tell is a `--draft` build that succeeds while the full build dies.
 - **Prefer `new_edges` over geometric selectors.** Each chamfer changes topology, so a
   selector resolved against pristine geometry drifts once an earlier chamfer runs.
   `new_edges(before, combined=after)` returns exactly the edges an operation created. It
@@ -288,7 +288,7 @@ Specific to OCCT, and measured on real parts rather than reasoned about.
 - **A loft through three or more sections wanders unless `ruled=True`.** With two sections the flag changes nothing, measured to the same volume, so a plain taper is fine either way. At three, the smooth default fits one spline through all of them and the wall between sections is nowhere the numbers say: lofting a 20mm square through a 10mm waist, the wall halfway there reads 12.5mm across where the straight line says 15. Every wall thickness and overhang worked out from the section dimensions drifts by that much, silently, between the stations. `ruled=True` puts the wall exactly on the straight line between sections, which is why the gridfinity shelf builds as one five-section ruled loft. Mismatched sections are not the hazard they look like: a square lofts to a hexagon or to its own 45 degree twin without complaint, so there is no vertex-matching rule, only the spline one.
 - **A ruled loft between polygons polishes like a prism; a smooth loft to a curve does not.** The rim where a square meets a circle refuses a 1mm chamfer and accepts 0.5, and taking the kernel's "smaller length" advice there walks straight under the 0.8mm floor. When a lofted part is going to be polished, prefer ruled polygonal sections; a rim that has to be round anyway is `crown`'s case, not a shrinking chamfer's.
 - **Loft does not police its sections.** Two sections landing nearly in one plane, the shape a `Pos` typo makes, return a fraction-of-a-mm3 sliver solid instead of raising. It builds, exports and passes the one-solid check, so the bounding box and the render are what catch it. A loft whose result looks wrong by eye is wrong at a section, not at the surface.
-- **A subtraction that misses is a legal no-op.** Cut a solid that sits entirely outside the body, the way a honeycomb pattern does once its spacing walks it off the face, and OCCT returns the untouched body without complaint. The build is green, the code ran, and nothing was removed, so a cut is never confirmed by the fact that it built. Confirm the material left: the volume dropped by roughly what the cutter should have taken, the openings show in `nurb inspect` or `nurb diff`, or a `--section` render shows them. A pattern of cuts also fails partly, some landing and some missing, which averages into a volume that looks plausible, so count the openings rather than trusting the total.
+- **A subtraction that misses is a legal no-op.** Cut a solid that sits entirely outside the body, the way a honeycomb pattern does once its spacing walks it off the face, and OCCT returns the untouched body without complaint. The build is green, the code ran, and nothing was removed, so a cut is never confirmed by the fact that it built. Confirm the material left: the volume dropped by roughly what the cutter should have taken, the openings show in the build's inspect, or a section render shows them. A pattern of cuts also fails partly, some landing and some missing, which averages into a volume that looks plausible, so count the openings rather than trusting the total.
 - **A Fusion workaround is sometimes a real constraint wearing a disguise.** The gusset
   drop that existed only to escape `ASM_BL_NO_MATE` turned out to be the same "a chamfer
   needs room to land" constraint at a different number. Deleting it would have been
@@ -310,7 +310,7 @@ Four sections, and one of them does work nothing else does:
 
 Plus two machine-facing pieces:
 
-- The **AUTO block**, regenerated by `nurb card`. Never hand-edit it. It is a cache, not
+- The **AUTO block**, regenerated on every build. Never hand-edit it. It is a cache, not
   a source of truth, and it holds no timestamp so regenerating it on unchanged geometry
   produces no diff.
 - The **accepted baselines**, a TOML fence carrying what this part has already justified:
@@ -385,14 +385,14 @@ moment to ask rather than to pick something plausible.
 
 **A photo is a shape, never a dimension.** It can identify the standard, that the siding is dutch lap, that the rail is 2020 extrusion, and the published profile carries the numbers from there. Pixels carry no millimetres, so a dimension read off a photo is a guess and gets marked like one.
 
-**A phone scan is reference geometry, not metrology.** Its error changes with the phone, capture mode, surface and technique, so no universal millimetre threshold makes it a caliper. `nurb scan` reads the mesh in mm, states the units it used, and slices profile polylines to sketch against. Record what it gave with `how` naming the file and the slice, and keep every scan-derived fit `provisional` until a coupon proves it against the real object.
+**A phone scan is reference geometry, not metrology.** Its error changes with the phone, capture mode, surface and technique, so no universal millimetre threshold makes it a caliper. A scan reads the mesh in mm, states the units it used, and slices profile polylines to sketch against. Record what it gave with `how` naming the file and the slice, and keep every scan-derived fit `provisional` until a coupon proves it against the real object.
 
 **A fit coupon turns a loose measurement into a tight one.** Before printing a part modelled against a scan or a photo, print the mating surface alone: a thin strip carrying just the profile, minutes of filament. Held against the real object it shows every gap the numbers hid, the parameters get corrected, and only then does the full part print. A coupon that fits is what takes the provisional flag off.
 
 **When there is nobody to ask**, write the guess down and mark it `provisional = true`.
 The danger was never the guess, it is that a guess and a measurement look identical six
 months later. `how` is still required, because "eyeballed against a broom" tells the
-next person how far to trust it, and `nurb check` lists every provisional value until
+next person how far to trust it, and the checks list every provisional value until
 somebody picks up a caliper.
 
 A measured value pays for itself across a family. Notch measured one bracket pitch and
@@ -415,7 +415,7 @@ parts mount into: the machine, the wall, the shelf above. The joint angle is an
 ordinary keyword default, so the viewer's slider swings it live, and the slider ends
 exactly where the declared range does.
 
-**The declared range is a claim, and `nurb check` audits it** the way min_wall audits
+**The declared range is a claim, and the checks audit it** the way min_wall audits
 a wall: each hinge sweeps through it against everything else in the scene, and a
 finding is the angle where it jams plus the coordinates of the contact. Declare what
 the design needs, never what happens to pass. A door that must stay open by gravity
@@ -459,7 +459,7 @@ on an assembled scene reports confident nonsense.
 
 ## Verification
 
-"It built" is not verification. `nurb verify` runs the machine-checkable part of
+"It built" is not verification. A build runs the machine-checkable part of
 this list: one solid per configuration, every count flexed upward, the rules clean,
 and the card agreeing with the geometry. `--report` writes the verdict into
 `build/renders/<part>.verify.md` with the renders that back it beside it, one still
@@ -469,17 +469,17 @@ Before presenting a part:
 
 1. **Flex the driving parameters up as well as down**, for example 4 to 6 to 2 to 4.
    Growth is what catches a frozen selector; shrinking alone passes a broken part.
-2. **Check fit-critical faces by coordinate** after any polish or resize. `nurb inspect`
+2. **Check fit-critical faces by coordinate** after any polish or resize. The build's inspect
    lists them, with each finding resolved to the face it fired on. Which faces are
-   fit-critical is still yours to know, which is why this is not something `nurb verify`
+   fit-critical is still yours to know, which is why this is not something a build
    can run for you.
 3. **Confirm the solid count**, which is almost always one.
-4. **Run `nurb check`.** Zero findings is the bar, and a finding fired at a part that
+4. **Read the findings.** Zero findings is the bar, and a finding fired at a part that
    prints fine is a bug in the rule, not something to accept quietly.
 5. **Predict a baseline before you look at it.** Working out what the sliver count
    should be from the polish exclusions turns the number into a test of the rule instead
    of something to write down.
-6. **Render it and actually look.** `nurb render <part>` writes a PNG, `--section
-   z:4mm` cuts it open where outside views cannot reach, and `nurb inspect --render`
+6. **Render it and actually look.** `look` returns the part from four angles, a section
+   cut opens it where outside views cannot reach, and the build's inspect
    stands a camera at every finding with the guilty face painted. A part can pass
    every numeric check and still be visibly wrong.

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import trimesh
 
-from nurb import cli, scan
+from nurb import scan
 
 # (depth, height) in metres: two 10mm courses with a 4mm step between them.
 PROFILE = [
@@ -207,27 +207,3 @@ def test_a_point_cloud_names_the_fix(tmp_path):
 def test_a_missing_file_is_a_clean_error(tmp_path):
     with pytest.raises(ValueError, match="no file"):
         scan.load(tmp_path / "missing.ply")
-
-
-def test_the_command_needs_no_project(tmp_path, monkeypatch, capsys):
-    """The scan arrives before the part exists, so scanning must work anywhere."""
-    target = sheet(tmp_path)
-    monkeypatch.chdir(tmp_path)
-    cli.main(["scan", str(target), "--section", "x"])
-    out = capsys.readouterr().out
-    assert "read as metres" in out
-    assert "points are (y, z) in mm" in out
-    assert "(    4.00,    10.00)" in out
-
-
-def test_the_command_preserves_the_path_in_the_import_call(tmp_path, monkeypatch, capsys):
-    target = tmp_path / "downloads" / "box.stl"
-    target.parent.mkdir()
-    trimesh.creation.box(extents=(40, 20, 10)).export(target)
-    working = tmp_path / "empty-project"
-    working.mkdir()
-    monkeypatch.chdir(working)
-
-    cli.main(["scan", str(target)])
-
-    assert f"import_stl({str(target)!r})" in capsys.readouterr().out

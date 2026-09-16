@@ -7,3 +7,5 @@ def hermetic_global_config(monkeypatch, tmp_path_factory):
     suite: it names their printer, and every default-context assertion would
     quietly become an assertion about their workshop."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path_factory.mktemp("xdg")))
+    # Same for the v2 database: NURB_HOME would point the suite at the developer's own.
+    monkeypatch.delenv("NURB_HOME", raising=False)

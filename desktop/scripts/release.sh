@@ -4,7 +4,7 @@ set -euo pipefail
 # Releases the desktop app: signed, notarized, stapled, uploaded, updatable.
 #
 # The engine and the app share one version and one release. Merging the
-# version bump lets publish.yml do PyPI and create the vX.Y.Z release; this
+# version bump lets publish.yml do PyPI and create the v<PEP440> release; this
 # script then builds the desktop half and uploads it to that same release,
 # so it refuses to run until the tag exists. A test enforces that
 # tauri.conf.json agrees with pyproject.toml, so the DMG a user downloads
@@ -41,11 +41,25 @@ export APPLE_SIGNING_IDENTITY APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH 
 
 VERSION=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
 PYVERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' ../pyproject.toml | head -1)
-TAG="v$VERSION"
+EXPECTED_VERSION=$(python3 - "$PYVERSION" <<'PY'
+import re
+import sys
+
+match = re.fullmatch(r"(\d+\.\d+\.\d+)(?:(a|b|rc)(\d+))?", sys.argv[1])
+if not match:
+    raise SystemExit(f"unsupported PEP 440 release version: {sys.argv[1]}")
+release, kind, number = match.groups()
+if kind:
+    label = {"a": "alpha", "b": "beta", "rc": "rc"}[kind]
+    release = f"{release}-{label}.{number}"
+print(release)
+PY
+)
+TAG="v$PYVERSION"
 REPO="Shpigford/nurb"
 
-if [ "$VERSION" != "$PYVERSION" ]; then
-  echo "❌ tauri.conf.json says $VERSION but pyproject.toml says $PYVERSION."
+if [ "$VERSION" != "$EXPECTED_VERSION" ]; then
+  echo "❌ tauri.conf.json says $VERSION but pyproject.toml says $PYVERSION ($EXPECTED_VERSION in SemVer)."
   echo "   The engine and the app release as one version; bump both."
   exit 1
 fi
@@ -149,4 +163,4 @@ gh release upload desktop-latest "$ARTIFACTS/latest.json" --repo "$REPO" --clobb
 echo "✅ Done! Release: https://github.com/$REPO/releases/tag/$TAG"
 echo "   Apple silicon: https://github.com/$REPO/releases/latest/download/nurb.dmg"
 echo "   Intel: https://github.com/$REPO/releases/latest/download/nurb-intel.dmg"
-echo "   Last step: run /changelog to write the site entry for v$VERSION."
+echo "   Last step: run /changelog to write the site entry for $TAG."

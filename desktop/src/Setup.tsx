@@ -108,8 +108,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
             <div className="setup-detail">{line}</div>
             <div className="setup-note">
               First launch downloads the CAD engine and the AI assistant (a few
-              hundred megabytes, one time). Your parts will live in ordinary
-              folders in Documents.
+              hundred megabytes, one time).
             </div>
           </>
         )}

@@ -8,7 +8,6 @@ import time
 import numpy as np
 import trimesh
 
-from . import crash
 from .registry import Rejected
 
 
@@ -147,19 +146,13 @@ def build(path, overrides=None, draft=False):
     params = describe(defn, kwargs)
 
     started = time.perf_counter()
-    # Named for the crash handler: a kernel fault inside fn() has no Python traceback,
-    # and this is how the message still says which part and which line. Restored, not
-    # cleared, because an assembly builds the parts it places from inside its own build.
-    outer, crash.part = crash.part, str(path)
     try:
         shape = fn(**call)
     except Rejected as exc:
         # A refused build still needs to describe the attempted values: they are the
-        # controls the viewer offers to get back into the part's valid range.
+        # controls the parameter panel offers to get back into the part's valid range.
         exc.params = params
         raise
-    finally:
-        crash.part = outer
     elapsed = (time.perf_counter() - started) * 1000
     if shape is None:
         raise BuildError(f"{defn.name}() returned None")
@@ -381,7 +374,7 @@ def write_3mf(shape, target):
     # tessellates to nothing is what the `solids` rule is for, so say that.
     if not len(welded.faces):
         target.unlink(missing_ok=True)
-        raise BuildError(f"{target.stem} has no geometry to export; `nurb check` says why")
+        raise BuildError(f"{target.stem} has no geometry to export; the build's findings say why")
     # Mesher is still what owns the lib3mf handle, the millimetre unit and the write,
     # so the platform's library layout stays build123d's problem. Only its meshing and
     # its validity gate are skipped.

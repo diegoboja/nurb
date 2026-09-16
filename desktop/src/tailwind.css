@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "@nurb/ui/tokens.css";
+
+/* The built and sibling-source classes live outside this app's tree, which
+   Tailwind does not scan on its own. */
+@source "../src";
+@source "../../packages/ui/dist";
+@source "../../packages/workbench/src";
