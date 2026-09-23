@@ -3,6 +3,8 @@ export type ChatColumn = {
   part: string;
   agent: string | null;
   resume: string | null;
+  // Optional transcript handoff for the first prompt after switching agents.
+  handoff: string | null;
   gen: number;
   // A hidden turn finished with state that has not been shown yet. Keep the
   // mounted column until it is visible so drafts, errors, and replies survive.

@@ -958,6 +958,17 @@ textarea {
   overflow-wrap: break-word;
 }
 
+.chat-handoff {
+  align-self: flex-start;
+  font-size: 11px;
+  color: var(--dim);
+  background: rgba(120, 180, 255, 0.08);
+  border: 1px solid rgba(120, 180, 255, 0.25);
+  padding: 6px 9px;
+  border-radius: 6px;
+  overflow-wrap: break-word;
+}
+
 .chat-auth {
   font-size: 12px;
   line-height: 1.6;

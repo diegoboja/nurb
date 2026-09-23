@@ -15,6 +15,8 @@ type Props = {
   customized: boolean;
   onChange: (folder: string) => void | Promise<void>;
   onReset: () => void | Promise<void>;
+  agentHandoffEnabled: boolean;
+  onAgentHandoffChange: (enabled: boolean) => void;
   // The agents installed on this Mac, so signing in lives with the rest of the
   // setup rather than beside the parts.
   agents: SettingsAgent[];
@@ -30,6 +32,8 @@ export default function Settings({
   customized,
   onChange,
   onReset,
+  agentHandoffEnabled,
+  onAgentHandoffChange,
   agents,
   agentStatusState,
   signingIn,
@@ -97,6 +101,16 @@ export default function Settings({
               onChange={(e) => toggleSound(e.target.checked)}
             />
             Play a chime when the agent finishes a long task
+          </label>
+          <h3>Agent handoff</h3>
+          <p>Carry recent conversation context when switching to another agent.</p>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={agentHandoffEnabled}
+              onChange={(e) => onAgentHandoffChange(e.target.checked)}
+            />
+            Share conversation context with the next agent
           </label>
           <h3>Agents</h3>
           <p>Pick which one you chat with from the chat header.</p>

@@ -267,6 +267,11 @@ function App() {
   const [defaultAgent, setDefaultAgent] = useState(
     () => localStorage.getItem("nurb-default-agent") ?? "claude",
   );
+  // Switching agents normally starts a separate session. This preference lets
+  // users carry a bounded transcript into that first prompt when they want to.
+  const [agentHandoffEnabled, setAgentHandoffEnabled] = useState(
+    () => localStorage.getItem("nurb-agent-handoff") !== "off",
+  );
   // null while the check runs, false when first-launch provisioning has work
   // to do, true once the environment is healthy and the app can start.
   const [ready, setReady] = useState<boolean | null>(null);
@@ -774,6 +779,7 @@ function App() {
                 part,
                 agent: seed?.agent ?? null,
                 resume: seed?.id ?? null,
+                handoff: null,
                 gen: 0,
                 unseen: false,
               },
@@ -862,7 +868,12 @@ function App() {
   // new conversation takes the current default; naming one pins it, which is
   // how the chat header switches agents. Either way the old conversation stays
   // in its agent's own store.
-  const startFresh = async (path: string, part: string, agent: string | null = null) => {
+  const startFresh = async (
+    path: string,
+    part: string,
+    agent: string | null = null,
+    handoff: string | null = null,
+  ) => {
     try {
       // Persist the empty selection before remounting. Otherwise quitting
       // before the first new prompt would restore the old newest session.
@@ -878,7 +889,7 @@ function App() {
     setColumns((list) =>
       list.map((col) =>
         col.path === path && col.part === part
-          ? { ...col, resume: null, agent, gen: col.gen + 1 }
+          ? { ...col, resume: null, agent, handoff, gen: col.gen + 1 }
           : col,
       ),
     );
@@ -1290,6 +1301,11 @@ function App() {
           customized={projectsFolder !== null}
           onChange={changeProjectsFolder}
           onReset={() => changeProjectsFolder(null)}
+          agentHandoffEnabled={agentHandoffEnabled}
+          onAgentHandoffChange={(enabled) => {
+            setAgentHandoffEnabled(enabled);
+            localStorage.setItem("nurb-agent-handoff", enabled ? "on" : "off");
+          }}
           agents={agentStatuses.filter((status) => status.installed)}
           agentStatusState={agentStatusState}
           signingIn={signingIn}
@@ -1351,17 +1367,27 @@ function App() {
                 loggedIn: status.loggedIn,
               }))}
             resume={col.resume}
+            handoff={agentHandoffEnabled ? col.handoff : null}
             hidden={!columnVisible(col)}
             seed={isProject && col.path === active ? projectSeed : null}
             onSeed={isProject ? () => setProjectSeed(null) : undefined}
             onSession={(id) => chatStarted(col.path, col.part, id, agent)}
             onFresh={() => startFresh(col.path, col.part)}
-            onAgent={(id, unstarted) => {
+            onAgent={(id, unstarted, handoff) => {
               // Picking an agent before the first message is choosing which
               // agent you work with, so it sticks for later chats too.
               if (unstarted) chooseAgent(id);
-              startFresh(col.path, col.part, id);
+              startFresh(col.path, col.part, id, agentHandoffEnabled ? handoff : null);
             }}
+            onHandoffCleared={() =>
+              setColumns((list) =>
+                list.map((current) =>
+                  current.path === col.path && current.part === col.part && current.gen === col.gen && current.handoff
+                    ? { ...current, handoff: null }
+                    : current,
+                ),
+              )
+            }
             onBusy={(busy) =>
               chatBusy(col.path, col.part, agent, busy, columnVisible(col))
             }

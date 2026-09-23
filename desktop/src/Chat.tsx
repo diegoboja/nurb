@@ -15,6 +15,7 @@ import { IconChevronDown, IconMessagePlus, IconPaperclip } from "./Icons";
 import Markdown from "./Markdown";
 import { playChime, shouldPlayCompletionChime } from "./chime";
 import { AttachmentDraft, restoreDraftText } from "./chatDraft";
+import { mergeHandoff, promptFailureMessage, shouldClearHandoff, shouldFollowTranscript } from "./chatHandoff";
 
 // The whole-project conversation rides the per-part plumbing under a name no part
 // file can have. Twins live in App.tsx's mount and acp.rs's context line.
@@ -136,12 +137,14 @@ function Chat({
   agent,
   agents,
   resume,
+  handoff,
   hidden,
   seed,
   onSeed,
   onSession,
   onFresh,
   onAgent,
+  onHandoffCleared,
   onBusy,
   onSignIn,
 }: {
@@ -155,6 +158,7 @@ function Chat({
   // Everything the app can host, for the header's switcher.
   agents: { id: string; label: string; loggedIn: boolean | null }[];
   resume: string | null;
+  handoff: string | null;
   hidden: boolean;
   // Text waiting for the composer, from a viewer nudge. Prefilled when the column
   // is visible, never sent; onSeed reports it landed so the owner clears it.
@@ -165,7 +169,8 @@ function Chat({
   // Switching agents cannot move a conversation across two different session
   // stores, so it starts a fresh one on the agent picked. `unstarted` is true
   // when nothing has been said yet, which makes the pick the new default.
-  onAgent: (id: string, unstarted: boolean) => void;
+  onAgent: (id: string, unstarted: boolean, handoff: string | null) => void;
+  onHandoffCleared: () => void;
   onBusy: (busy: boolean) => void;
   onSignIn: (agent: string) => Promise<boolean>;
 }) {
@@ -201,7 +206,13 @@ function Chat({
   // A resume id is single-use after the adapter accepts it. Authentication
   // failures retain it; a dead resumed session must not replay it again.
   const resumeRef = useRef<string | null>(resume);
+  const handoffRef = useRef<string | null>(handoff);
+  const [pendingHandoff, setPendingHandoff] = useState<string | null>(handoff);
   const restoringRef = useRef(Boolean(resume));
+  useEffect(() => {
+    handoffRef.current = handoff;
+    setPendingHandoff(handoff);
+  }, [handoff]);
   // Refs, not state: these guard against races within a tick (double-Enter)
   // and after unmount, where state reads are stale or gone.
   const closedRef = useRef(false);
@@ -211,6 +222,10 @@ function Chat({
   // mount cannot spawn two adapters.
   const startRef = useRef<Promise<string> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Streaming changes the transcript on every chunk. Only follow those changes
+  // while the reader is already at its end, so scrolling up to read never fights
+  // the incoming response.
+  const followTranscriptRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Latest callbacks behind stable refs so ensureSession never goes stale.
   const onSessionRef = useRef(onSession);
@@ -238,8 +253,15 @@ function Chat({
 
   useEffect(() => {
     const pane = scrollRef.current;
-    if (pane) pane.scrollTop = pane.scrollHeight;
+    if (pane && followTranscriptRef.current) pane.scrollTop = pane.scrollHeight;
   }, [items, permissions, busy]);
+
+  const updateTranscriptFollow = () => {
+    const pane = scrollRef.current;
+    if (!pane) return;
+    // A small tolerance avoids losing follow mode to sub-pixel layout rounding.
+    followTranscriptRef.current = shouldFollowTranscript(pane.scrollHeight, pane.scrollTop, pane.clientHeight);
+  };
 
   useEffect(() => {
     // Dev-only test hook: the Rust side forwards loopback-socket text here so
@@ -501,6 +523,9 @@ function Chat({
       sendingRef.current = true;
       const startedAt = Date.now();
       const localId = nextLocalIdRef.current++;
+      const handoff = handoffRef.current;
+      // Sending a message is an explicit request to return to the live end.
+      followTranscriptRef.current = true;
       setItems((list) => [
         ...list,
         {
@@ -514,17 +539,22 @@ function Chat({
       onBusyRef.current(true);
       setAuthNeeded("none");
       let completed = false;
+      let dispatchAttempted = false;
+      let failure: unknown;
       try {
         const session = await ensureSession();
+        dispatchAttempted = true;
         await invoke<string>("send_prompt", {
           sessionId: session,
           text,
           part: part ?? null,
           attachments: files,
+          handoff,
         });
         completed = true;
       } catch (e) {
-        const message = String(e);
+        failure = e;
+        const message = promptFailureMessage(e);
         if (message.includes("auth_required")) {
           // Nothing was sent. Restore it ahead of any next draft composed
           // during the turn, and keep both turns' attachments.
@@ -540,6 +570,11 @@ function Chat({
           setItems((list) => [...list, { kind: "note", text: message }]);
         }
       } finally {
+        if (shouldClearHandoff(dispatchAttempted, failure)) {
+          handoffRef.current = null;
+          setPendingHandoff(null);
+          onHandoffCleared();
+        }
         sendingRef.current = false;
         setBusy(false);
         onBusyRef.current(false);
@@ -549,7 +584,7 @@ function Chat({
         if (shouldPlayCompletionChime(completed, Date.now() - startedAt)) playChime();
       }
     },
-    [ensureSession, part, attachmentDraft],
+    [ensureSession, part, attachmentDraft, onHandoffCleared],
   );
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -694,7 +729,9 @@ function Chat({
                         }
                         onClick={() => {
                           setSwitching(false);
-                          if (option.id !== agent) onAgent(option.id, items.length === 0);
+                          if (option.id !== agent) {
+                            onAgent(option.id, items.length === 0, mergeHandoff(handoffRef.current, items));
+                          }
                         }}
                       >
                         {option.label}
@@ -728,8 +765,17 @@ function Chat({
           </button>
         )}
       </div>
-      <div className="chat-transcript" ref={scrollRef}>
-        {items.length === 0 && !busy && (
+      <div className="chat-transcript" ref={scrollRef} onScroll={updateTranscriptFollow}>
+        {pendingHandoff && (
+          <div
+            className="chat-handoff"
+            role="status"
+            title="Your first message will include recent context from the previous agent"
+          >
+            Context from previous agent ready for your first message
+          </div>
+        )}
+        {items.length === 0 && !busy && !pendingHandoff && (
           <div className="chat-empty">
             {isProject
               ? `This conversation covers the whole project. Ask ${label} for new parts, or for changes every part should share.`
